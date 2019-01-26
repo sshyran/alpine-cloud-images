@@ -54,13 +54,10 @@ builders:
 
 provisioners:
   - type: "file"
-    source: "nvme-ebs-links.sh"
-    destination: "/tmp/"
-  - type: "file"
-    source: "nvme-ebs-mdev.conf"
-    destination: "/tmp/"
+    source: "nvme/"
+    destination: "/tmp"
   - type: "shell"
     script: "make_ami.sh"
     environment_vars:
       - "ALPINE_RELEASE={{user `alpine_release`}}"
-    execute_command: 'sudo sh -c "{{ .Vars }} {{ .Path }} ''{{user `add_repos`}}'' ''{{user `add_pkgs`}}''"'
+    execute_command: 'sudo sh -c "{{ .Vars }} {{ .Path }} ''{{user `add_repos`}}'' ''{{user `add_pkgs`}}'' ''{{user `add_svcs`}}''"'
