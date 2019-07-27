@@ -31,7 +31,9 @@ case $ACTION in
       sleep 0.1
     done
     # remove any leading '/dev/', 'sd', or 'xvd', and append partition
-    EBS="${${${EBS#/dev/}#sd}#xvd}$PART"
+    EBS=${EBS#/dev/}
+    EBS=${EBS#sd}
+    EBS=${EBS#xvd}$PART
     ln -sf "$MDEV" "sd$EBS" && log notice "Added sd$EBS symlink for $MDEV"
     ln -sf "$MDEV" "xvd$EBS" && log notice "Added xvd$EBS symlink for $MDEV"
     ;;
