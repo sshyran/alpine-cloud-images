@@ -56,25 +56,33 @@ pkgs {
   tzdata              = true
 }
 svcs {
-  devfs               = "sysinit"
-  dmesg               = "sysinit"
-  hwdrivers           = "sysinit"
-  mdev                = "sysinit"
-  acpid               = "boot"
-  bootmisc            = "boot"
-  hostname            = "boot"
-  hwclock             = "boot"
-  modules             = "boot"
-  swap                = "boot"
-  sysctl              = "boot"
-  syslog              = "boot"
-  chronyd             = "default"
-  networking          = "default"
-  sshd                = "default"
-  tiny-ec2-bootstrap  = "default"
-  killprocs           = "shutdown"
-  mount-ro            = "shutdown"
-  savecache           = "shutdown"
+  sysinit {
+    devfs               = true
+    dmesg               = true
+    hwdrivers           = true
+    mdev                = true
+  }
+  boot {
+    acpid               = true
+    bootmisc            = true
+    hostname            = true
+    hwclock             = true
+    modules             = true
+    swap                = true
+    sysctl              = true
+    syslog              = true
+  }
+  default {
+    chronyd             = true
+    networking          = true
+    sshd                = true
+    tiny-ec2-bootstrap  = true
+  }
+  shutdown {
+    killprocs           = true
+    mount-ro            = true
+    savecache           = true
+  }
 }
 kernel_modules {
   sd-mod      = true
