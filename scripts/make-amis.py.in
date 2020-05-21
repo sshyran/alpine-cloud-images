@@ -1,0 +1,68 @@
+@PYTHON@
+# vim: set ts=4 et:
+
+import os
+import io
+import sys
+import argparse
+import subprocess
+
+
+def find_repo_root():
+    path = os.getcwd()
+
+    while ".git" not in set(os.listdir(path)) and path != "/":
+        path = os.path.dirname(path)
+
+    if path == "/":
+        raise Exception("No repo found, stopping at /")
+
+    return path
+
+
+def main(args):
+    parser = argparse.ArgumentParser(description="Build Packer JSON variable "
+        "files from HOCON build profiles")
+    parser.add_argument("profile", help="name of profile to build")
+    parser.add_argument("builds", nargs="*",
+        help="name of builds within a profile to build")
+    args = parser.parse_args()
+
+    os.chdir(os.path.join(find_repo_root(), "build"))
+
+    builds = args.builds or os.listdir(os.path.join("profile", args.profile))
+    for build in builds:
+        print(f"\n*** Building {args.profile}/{build} ***\n\n")
+
+        build_dir = os.path.join("profile", args.profile, build)
+        if not os.path.exists(build_dir):
+            print(f"Build dir '{build_dir}' does not exist")
+            break
+
+        out = io.StringIO()
+
+        res = subprocess.Popen([
+                os.environ.get("PACKER", "packer"),
+                "build",
+                f"-var-file={build_dir}/vars.json",
+                "packer.json"
+            ], stdout=subprocess.PIPE, encoding="utf-8")
+
+        while res.poll() is None:
+            text = res.stdout.readline()
+            out.write(text)
+            print(text, end="")
+
+        if res.returncode == 0:
+            subprocess.run(["./update-release.py", args.profile, build])
+        else:
+            if "is used by an existing AMI" in out.getvalue():
+                continue
+            else:
+                sys.exit(res.returncode)
+
+    print("\n=== DONE ===\n")
+
+
+if __name__ == "__main__":
+    main(sys.argv)

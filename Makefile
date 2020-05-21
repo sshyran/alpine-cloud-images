@@ -24,9 +24,9 @@ __check_defined = \
 
 .PHONY: amis prune release-readme clean
 
-amis: build build/packer.json build/profile/$(PROFILE) build/update-release.py
+amis: build build/packer.json build/profile/$(PROFILE) build/update-release.py build/make-amis.py
 	@:$(call check_defined, PROFILE, target profile name)
-	build/make-amis $(PROFILE) $(BUILDS)
+	build/make-amis.py $(PROFILE) $(BUILDS)
 
 prune: build build/prune-amis.py
 	@:$(call check_defined, LEVEL, pruning level)
