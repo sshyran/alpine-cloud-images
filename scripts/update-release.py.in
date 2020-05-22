@@ -1,62 +1,80 @@
 @PYTHON@
 # vim: set ts=4 et:
 
-import json
 import os
 import re
 import sys
+import json
+import argparse
+
 import yaml
 
-if len(sys.argv) != 3:
-    sys.exit("Usage: " + os.path.basename(__file__) + " <profile> <build>")
 
-PROFILE = sys.argv[1]
-BUILD = sys.argv[2]
+def find_repo_root():
+    path = os.getcwd()
 
-SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
-MANIFEST_JSON = os.path.join(
-    SCRIPT_DIR, 'profile', PROFILE, BUILD, 'manifest.json'
-)
+    while ".git" not in set(os.listdir(path)) and path != "/":
+        path = os.path.dirname(path)
 
-RELEASE_DIR = os.path.join(SCRIPT_DIR, '..', 'releases')
-RELEASE_YAML = os.path.join(RELEASE_DIR, PROFILE + '.yaml')
+    if path == "/":
+        raise Exception("No repo found, stopping at /")
 
-if not os.path.exists(RELEASE_DIR):
-    os.makedirs(RELEASE_DIR)
+    return path
 
-releases = {}
-if os.path.exists(RELEASE_YAML):
-    with open(RELEASE_YAML, 'r') as data:
-        releases = yaml.safe_load(data)
 
-with open(MANIFEST_JSON, 'r') as data:
-    MANIFEST = json.load(data)
+def parse_artifact_ids(ids):
+    parsed = re.split(":|,", ids)
+    return dict(zip(parsed[0::2], parsed[1::2]))
 
-A = re.split(':|,', MANIFEST['builds'][0]['artifact_id'])
-ARTIFACTS = dict(zip(A[0::2], A[1::2]))
-BUILD_TIME = MANIFEST['builds'][0]['build_time']
-DATA = MANIFEST['builds'][0]['custom_data']
-RELEASE = DATA['release']
 
-if BUILD not in releases:
-    releases[BUILD] = {}
-if RELEASE not in releases[BUILD]:
-    releases[BUILD][RELEASE] = {}
+def main(args):
+    parser = argparse.ArgumentParser(description="Update release YAML")
+    parser.add_argument("profile", help="name of profile to update")
+    parser.add_argument("build", help="name of build to update")
+    args = parser.parse_args()
 
-REVISION = {
-    'description': DATA['ami_desc'],
-    'profile': PROFILE,
-    'profile_build': BUILD,
-    'version': DATA['version'],
-    'release': RELEASE,
-    'arch': DATA['arch'],
-    'revision': DATA['revision'],
-    'end_of_life': DATA['end_of_life'],
-    'build_time': BUILD_TIME,
-    'artifacts': ARTIFACTS
-}
+    root = find_repo_root()
 
-releases[BUILD][RELEASE][DATA['ami_name']] = REVISION
+    release_dir = os.path.join(root, "releases")
+    if not os.path.exists(release_dir):
+        os.makedirs(release_dir)
 
-with open(RELEASE_YAML, 'w') as data:
-    yaml.dump(releases, data, sort_keys=False)
+    release_yaml = os.path.join(release_dir, f"{args.profile}.yaml")
+    releases = {}
+    if os.path.exists(release_yaml):
+        with open(release_yaml, "r") as data:
+            releases = yaml.safe_load(data)
+
+    manifest_json = os.path.join(
+        root, "build", "profile", args.profile, args.build, "manifest.json")
+    with open(manifest_json, "r") as data:
+        manifest = json.load(data)
+
+    data = manifest["builds"][0]["custom_data"]
+    release = data["release"]
+
+    if args.build not in releases:
+        releases[args.build] = {}
+
+    if release not in releases[args.build]:
+        releases[args.build][release] = {}
+
+    releases[args.build][release][data["ami_name"]] = {
+        "description": data["ami_desc"],
+        "profile": args.profile,
+        "profile_build": args.build,
+        "version": data["version"],
+        "release": release,
+        "arch": data["arch"],
+        "revision": data["revision"],
+        "end_of_life": data["end_of_life"],
+        "build_time": manifest["builds"][0]["build_time"],
+        "artifacts": parse_artifact_ids(manifest["builds"][0]["artifact_id"]),
+    }
+
+    with open(release_yaml, "w") as data:
+        yaml.dump(releases, data, sort_keys=False)
+
+
+if __name__ == "__main__":
+    main(sys.argv)
