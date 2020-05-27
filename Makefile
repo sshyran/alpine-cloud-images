@@ -25,7 +25,7 @@ __check_defined = \
 
 .PHONY: amis prune release-readme clean
 
-amis: build/packer.json build/profile/$(PROFILE) build build/setup-ami $(NVME_SCRIPTS)
+amis: build/packer.json build/profile/$(PROFILE) build
 	@:$(call check_defined, PROFILE, target profile name)
 	build/builder make-amis $(PROFILE) $(BUILDS)
 
@@ -54,7 +54,7 @@ build/packer.json: packer.conf build
 .PHONY: build/profile/$(PROFILE)
 build/profile/$(PROFILE): build $(CORE_PROFILES) $(TARGET_PROFILES)
 	@:$(call check_defined, PROFILE, target profile name)
-	build/builder resolve-profile $(PROFILE)
+	build/builder resolve-profiles $(PROFILE)
 
 clean:
 	rm -rf build
