@@ -568,6 +568,26 @@ class UpdateReleases:
             yaml.dump(releases, data, sort_keys=False)
 
 
+class ConvertPackerJSON:
+    """Convert packer.conf to packer.json
+    """
+
+    command_name = "convert-packer-config"
+
+    @staticmethod
+    def add_args(parser):
+        pass
+
+    def run(self, args, root):
+        source = os.path.join(root, "packer.conf")
+        dest = os.path.join(root, "build", "packer.json")
+
+        logging.getLogger().setLevel(logging.INFO)
+
+        pyhocon.converter.HOCONConverter.convert_from_file(
+            source, dest, "json", 2, False)
+
+
 def find_repo_root():
     path = os.getcwd()
 
