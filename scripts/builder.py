@@ -248,8 +248,8 @@ class MakeAMIs:
     def add_args(parser):
         parser.add_argument("--region", "-r", default="us-west-2",
             help="region to use for build")
-        parser.add_argument("--no-broker", action="store_true",
-            help="disable use of identity broker")
+        parser.add_argument("--use-broker", action="store_true",
+            help="use identity broker to obtain per-region credentials")
         parser.add_argument("profile", help="name of profile to build")
         parser.add_argument("builds", nargs="*",
             help="name of builds within a profile to build")
@@ -269,7 +269,7 @@ class MakeAMIs:
                 break
 
             env = None
-            if not args.no_broker:
+            if args.use_broker:
                 creds = IdentityBrokerClient().get_credentials(args.region)
                 env = {
                     "PATH": os.environ.get("PATH"),
@@ -651,8 +651,8 @@ class FullBuild:
     def add_args(parser):
         parser.add_argument("--region", "-r", default="us-west-2",
             help="region to use for build")
-        parser.add_argument("--no-broker", action="store_true",
-            help="disable use of identity broker")
+        parser.add_argument("--use-broker", action="store_true",
+            help="use identity broker to obtain per-region credentials")
         parser.add_argument("profile", help="name of profile to build")
         parser.add_argument("builds", nargs="*",
             help="name of builds within a profile to build")
