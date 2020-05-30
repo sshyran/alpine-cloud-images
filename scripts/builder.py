@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.8
+#!/usr/bin/env python3
 
 # This bit has to stay at the very top of the script. It exists to ensure that
 # running this script all by itself uses the python virtual environment with
@@ -8,7 +8,7 @@ import os
 import sys
 import subprocess
 
-args = [os.path.join("build", "bin", "python3.8")] + sys.argv
+args = [os.path.join("build", "bin", "python3")] + sys.argv
 
 # Create the build root if it doesn't exist
 if not os.path.exists("build"):
@@ -64,7 +64,8 @@ class IdentityBrokerClient:
         self.key = key
         self._logger = logging.getLogger(__class__.__name__)
 
-        if override_endpoint := os.environ.get("IDENTITY_BROKER_ENDPOINT"):
+        override_endpoint = os.environ.get("IDENTITY_BROKER_ENDPOINT")
+        if override_endpoint:
             self.endpoint = override_endpoint
 
         if not self.key:
@@ -364,7 +365,8 @@ class PruneAMIs:
                     version = info["version"]
                     built = info["build_time"]
 
-                    if eol := info.get("end_of_life"):
+                    eol = info.get("end_of_life")
+                    if eol:
                         eol = datetime.fromisoformat(info["end_of_life"])
 
                     for region, ami_id in info["artifacts"].items():
@@ -392,7 +394,8 @@ class PruneAMIs:
                 for ami_name, info in amis.items():
                     version = info["version"]
 
-                    if eol := info.get("end_of_life"):
+                    eol = info.get("end_of_life")
+                    if eol:
                         eol = datetime.fromisoformat(info["end_of_life"])
 
                     if args.level == "revision":
@@ -725,7 +728,8 @@ def main():
         subparser = subs.add_parser(
             command.command_name, help=doc, description=doc)
 
-        if add_args := getattr(command, "add_args", None):
+        add_args = getattr(command, "add_args", None)
+        if add_args:
             command.add_args(subparser)
 
     args = parser.parse_args()
