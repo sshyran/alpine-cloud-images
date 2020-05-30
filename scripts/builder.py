@@ -54,6 +54,13 @@ import pyhocon
 
 
 class IdentityBrokerClient:
+    """Client for identity broker
+
+    Export IDENTITY_BROKER_ENDPOINT to override the default broker endpoint.
+    Export IDENTITY_BROKER_API_KEY to specify an API key for the broker.
+
+    See README_BROKER.md for more information and a spec.
+    """
 
     _DEFAULT_ENDPOINT = "https://aws-access.crute.us/api/account"
     _DEFAULT_ACCOUNT = "alpine-amis-user"
