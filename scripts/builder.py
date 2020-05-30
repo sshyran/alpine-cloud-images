@@ -247,6 +247,8 @@ class MakeAMIs:
     def add_args(parser):
         parser.add_argument("--region", "-r", default="us-west-2",
             help="region to use for build")
+        parser.add_argument("--no-broker", action="store_true",
+            help="disable use of identity broker")
         parser.add_argument("profile", help="name of profile to build")
         parser.add_argument("builds", nargs="*",
             help="name of builds within a profile to build")
@@ -265,7 +267,17 @@ class MakeAMIs:
                 print(f"Build dir '{build_dir}' does not exist")
                 break
 
-            creds = IdentityBrokerClient().get_credentials(args.region)
+            env = None
+            if not args.no_broker:
+                creds = IdentityBrokerClient().get_credentials(args.region)
+                env = {
+                    "PATH": os.environ.get("PATH"),
+                    "AWS_ACCESS_KEY_ID": creds["access_key"],
+                    "AWS_SECRET_ACCESS_KEY": creds["secret_key"],
+                    "AWS_SESSION_TOKEN": creds["session_token"],
+                    "AWS_DEFAULT_REGION": args.region,
+                }
+
             out = io.StringIO()
 
             res = subprocess.Popen([
@@ -273,13 +285,7 @@ class MakeAMIs:
                     "build",
                     f"-var-file={build_dir}/vars.json",
                     "packer.json"
-                ], stdout=subprocess.PIPE, encoding="utf-8", env={
-                    "PATH": os.environ.get("PATH"),
-                    "AWS_ACCESS_KEY_ID": creds["access_key"],
-                    "AWS_SECRET_ACCESS_KEY": creds["secret_key"],
-                    "AWS_SESSION_TOKEN": creds["session_token"],
-                    "AWS_DEFAULT_REGION": args.region,
-                })
+                ], stdout=subprocess.PIPE, encoding="utf-8", env=env)
 
             while res.poll() is None:
                 text = res.stdout.readline()
@@ -643,6 +649,8 @@ class FullBuild:
     def add_args(parser):
         parser.add_argument("--region", "-r", default="us-west-2",
             help="region to use for build")
+        parser.add_argument("--no-broker", action="store_true",
+            help="disable use of identity broker")
         parser.add_argument("profile", help="name of profile to build")
         parser.add_argument("builds", nargs="*",
             help="name of builds within a profile to build")
