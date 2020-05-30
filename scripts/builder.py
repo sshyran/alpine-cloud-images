@@ -287,8 +287,7 @@ class MakeAMIs:
                 print(text, end="")
 
             if res.returncode == 0:
-                subprocess.run([os.path.join(root, "build", "builder"),
-                    "update-releases", args.profile, build])
+                UpdateReleases().update_readme(args.profile, build, root)
             else:
                 if "is used by an existing AMI" in out.getvalue():
                     continue
@@ -537,16 +536,19 @@ class ResolveProfiles:
         parser.add_argument(
             "profile", help="name of profile to build", nargs="*")
 
-    def run(self, args, root):
+    def resolve_profiles(self, profiles, root):
         builder = ConfigBuilder(
             os.path.join(root, "profiles"),
             os.path.join(root, "build", "profile"))
 
-        if args.profile:
-            for profile in args.profile:
+        if profiles:
+            for profile in profiles:
                 builder.build_profile(profile)
         else:
             builder.build_all()
+
+    def run(self, args, root):
+        self.resolve_profiles(args.profile, root)
 
 
 class UpdateReleases:
@@ -566,18 +568,21 @@ class UpdateReleases:
         return dict(zip(parsed[0::2], parsed[1::2]))
 
     def run(self, args, root):
+        self.update_readme(args.profile, args.build, root)
+
+    def update_readme(self, profile, build, root):
         release_dir = os.path.join(root, "releases")
         if not os.path.exists(release_dir):
             os.makedirs(release_dir)
 
-        release_yaml = os.path.join(release_dir, f"{args.profile}.yaml")
+        release_yaml = os.path.join(release_dir, f"{profile}.yaml")
         releases = {}
         if os.path.exists(release_yaml):
             with open(release_yaml, "r") as data:
                 releases = yaml.safe_load(data)
 
         manifest_json = os.path.join(
-            root, "build", "profile", args.profile, args.build,
+            root, "build", "profile", profile, build,
             "manifest.json")
         with open(manifest_json, "r") as data:
             manifest = json.load(data)
@@ -585,16 +590,16 @@ class UpdateReleases:
         data = manifest["builds"][0]["custom_data"]
         release = data["release"]
 
-        if args.build not in releases:
-            releases[args.build] = {}
+        if build not in releases:
+            releases[build] = {}
 
-        if release not in releases[args.build]:
-            releases[args.build][release] = {}
+        if release not in releases[build]:
+            releases[build][release] = {}
 
-        releases[args.build][release][data["ami_name"]] = {
+        releases[build][release][data["ami_name"]] = {
             "description": data["ami_desc"],
-            "profile": args.profile,
-            "profile_build": args.build,
+            "profile": profile,
+            "profile_build": build,
             "version": data["version"],
             "release": release,
             "arch": data["arch"],
@@ -626,6 +631,34 @@ class ConvertPackerJSON:
 
         pyhocon.converter.HOCONConverter.convert_from_file(
             source, dest, "json", 2, False)
+
+
+class FullBuild:
+    """Make all of the AMIs for a profile
+    """
+
+    command_name = "amis"
+
+    @staticmethod
+    def add_args(parser):
+        parser.add_argument("--region", "-r", default="us-west-2",
+            help="region to use for build")
+        parser.add_argument("profile", help="name of profile to build")
+        parser.add_argument("builds", nargs="*",
+            help="name of builds within a profile to build")
+
+    def run(self, args, root):
+        print("Converting packer.conf to JSON...", file=sys.stderr)
+        ConvertPackerJSON().run(args, root)
+
+        print("Resolving profiles...", file=sys.stderr)
+        ResolveProfiles().resolve_profiles([args.profile], root)
+
+        print("Running packer...", file=sys.stderr)
+        MakeAMIs().run(args, root)
+
+        print("Updating release readme...", file=sys.stderr)
+        GenReleaseReadme().run(args, root)
 
 
 def find_repo_root():

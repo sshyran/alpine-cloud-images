@@ -36,7 +36,6 @@ include as much detailed information as possible.
 
 * [Packer](https://packer.io) >= 1.4.1
 * [Python 3.x](https://python.org) (3.7 is known to work)
-* `make` (GNU Make is known to work)
 * an AWS account with an existing subnet in an AWS Virtual Private Cloud
 
 ### Profile Configuration
@@ -59,18 +58,12 @@ two methods on the list.*
 
 To build all build targets in a target profile, simply...
 ```
-make PROFILE=<profile>
+./scripts/builder.py amis <profile>
 ```
 
 You can also build specfic build targets within a profile:
 ```
-make PROFILE=<profile> BUILDS="<build1> <build2>"
-```
-
-If the `packer` binary is not in your `PATH`, or you would like to specify a
-different one, use...
-```
-make PACKER=<packer-path> PROFILE=<profile>
+./scripts/builder.py amis <profile> <build1> <build2>
 ```
 
 Before each build, new Alpine Linux *releases* are detected and the version's
@@ -98,7 +91,7 @@ pruning:
 
 To prune a profile (or optionally one build target of a profile)...
 ```
-make prune LEVEL=<level> PROFILE=<profile> [BUILD=<build>]
+./scripts/builder.py prune-amis <profile> [<build>]
 ```
 
 Any AMIs in the account which are "unknown" (to the profile/build target, at
@@ -110,14 +103,14 @@ This make target updates the [releases README](releases/README.md), primarily
 for updating the list of our pre-built AMIs.  This may-or-may-not be useful for
 other target profiles.
 ```
-make release-readme PROFILE=<profile>
+./scripts/builder.py gen-release-readme <profile>
 ```
 
 ### Cleaning up the Build Environment
 
-`make clean` will remove the temporary `build` subdirectory, which contains the
-resolved profile and Packer configs, the Python virtual environment, and other
-temporary build-related artifacts.
+`git clean -dxf` will remove the temporary `build` subdirectory, which contains
+the resolved profile and Packer configs, the Python virtual environment, and
+other temporary build-related artifacts.
 
 ## Caveats
 
