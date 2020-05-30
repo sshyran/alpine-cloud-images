@@ -108,9 +108,10 @@ other target profiles.
 
 ### Cleaning up the Build Environment
 
-`git clean -dxf` will remove the temporary `build` subdirectory, which contains
-the resolved profile and Packer configs, the Python virtual environment, and
-other temporary build-related artifacts.
+The build process is careful to place all temporary files in teh `build`
+subdirectory. Remove the temporary `build` subdirectory, which contains the
+resolved profile and Packer configs, the Python virtual environment, and other
+temporary build-related artifacts.
 
 ## Caveats
 
