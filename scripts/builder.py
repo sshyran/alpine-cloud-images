@@ -662,6 +662,8 @@ class FullBuild:
 
 
 def find_repo_root():
+    """Find the root of the repo, which contains a .git folder
+    """
     path = os.getcwd()
 
     while ".git" not in set(os.listdir(path)) and path != "/":
@@ -674,6 +676,33 @@ def find_repo_root():
 
 
 def main():
+    """An introspective main method
+
+    Just some silly metaprogramming to make commands really easy to write and
+    to avoid needing to hand register them. Commands have a specific interface,
+    per below, but should be really easy to create and will be auto discovered.
+
+    Commands are objects that have the following attributes:
+
+        __doc__ (python docstring)
+            used as help text in the CLI
+
+        command_name (string)
+            name of the command as invoked by the cli
+
+        add_args(parser) (class or static method)
+            passed an argparse subparser at setup time that will ultimately
+            handle the arguments for the command at runtime. Should add any
+            configuration necessary for the command to use later. Must not
+            rely on object state as it is not invoked with an instance of the
+            object.
+
+        run(self, args, root) (instance method)
+            passed the arguments object as parsed by argparse as well as a
+            string indicating the root of the repository (the folder containing
+            the .git folder). Should throw exceptions on error and return when
+            completed. Should *not* execute sys.exit
+    """
     dispatch = {}
 
     parser = argparse.ArgumentParser()
