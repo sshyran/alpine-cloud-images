@@ -1,3 +1,34 @@
+#!/usr/bin/env python3.8
+
+# This bit has to stay at the very top of the script. It exists to ensure that
+# running this script all by itself uses the python virtual environment with
+# our dependencies installed. If will create that environment if it doesn't
+# exist.
+import os
+import sys
+import subprocess
+
+args = [os.path.join("build", "bin", "python3.8")] + sys.argv
+
+# Create the build root if it doesn't exist
+if not os.path.exists("build"):
+    import venv
+
+    print("Build environment does not exist, creating...", file=sys.stderr)
+    venv.create("build", with_pip=True)
+    subprocess.run(["build/bin/pip", "install", "-U", "pip",
+        "pyhocon", "boto3", "PyYAML"])
+
+    print("Re-executing with builder python...", file=sys.stderr)
+    os.execv(args[0], args)
+else:
+    # If the build root python is not running this script re-execute it with
+    # that python instead to ensure all of our dependencies exist.
+    if os.path.join(os.getcwd(), args[0]) != sys.executable:
+        print("Re-executing with builder python...", file=sys.stderr)
+        os.execv(args[0], args)
+
+# Below here is the real script
 import io
 import os
 import re
