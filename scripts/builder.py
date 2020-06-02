@@ -89,11 +89,13 @@ class IdentityBrokerClient:
                 if ex.headers.get("Location") == "/logout":
                     raise Exception("Identity broker token is expired")
 
-            if res.status == 429:
-                self._logger.warning(
-                    "Rate-limited by identity broker, sleeping 30 seconds")
-                time.sleep(30)
-                continue
+                if ex.status == 429:
+                    self._logger.warning(
+                        "Rate-limited by identity broker, sleeping 30 seconds")
+                    time.sleep(30)
+                    continue
+
+                raise ex
 
             if res.status not in {200, 429}:
                 raise Exception(res.reason)
