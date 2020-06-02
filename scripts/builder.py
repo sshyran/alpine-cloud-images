@@ -777,6 +777,12 @@ def main():
             rely on object state as it is not invoked with an instance of the
             object.
 
+        check_args(self, args) (class method, optional)
+            passed the set of arguments that were parsed before the command was
+            invoked. This function should return a list of errors or None.
+            Non-empty lists will cause the command to not be executed and help
+            being printed.
+
         run(self, args, root, log) (instance method)
             passed the arguments object as parsed by argparse as well as a
             string indicating the root of the repository (the folder containing
@@ -811,8 +817,15 @@ def main():
             command.add_args(subparser)
 
     args = parser.parse_args()
+
     command = dispatch[args.command_name]
-    command.run(args, find_repo_root(), logger)
+    errors = getattr(command, "check_args", lambda x: [])(args)
+    if errors:
+        logger.error("\n".join(errors))
+        # Ugly hack, gets the help for the subcommand, no public API for this
+        parser._actions[1]._name_parser_map[args.command_name].print_help()
+    else:
+        command.run(args, find_repo_root(), logger)
 
 
 if __name__ == "__main__":
