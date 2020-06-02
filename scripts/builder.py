@@ -53,6 +53,37 @@ import boto3
 import pyhocon
 
 
+class ColoredFormatter(logging.Formatter):
+    """Log formatter that colors output based on level
+    """
+
+    _colors = {
+        "red": "31",
+        "green": "32",
+        "yellow": "33",
+        "blue": "34",
+        "magenta": "35",
+        "cyan": "36",
+        "white": "37",
+    }
+
+    def _color_wrap(self, text, color, bold=False):
+        code = self._colors[color]
+        if bold:
+            code = "1;{}".format(code)
+        return "\033[{}m{}\033[0m".format(code, text)
+
+    def format(self, record):
+        msg = super().format(record)
+        # Levels: CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET
+        if record.levelno in {logging.ERROR, logging.CRITICAL}:
+            return self._color_wrap(msg, "red")
+        elif record.levelno == logging.WARNING:
+            return self._color_wrap(msg, "yellow")
+        else:
+            return self._color_wrap(msg, "green")
+
+
 class IdentityBrokerClient:
     """Client for identity broker
 
@@ -69,7 +100,7 @@ class IdentityBrokerClient:
         self.endpoint = endpoint or self._DEFAULT_ENDPOINT
         self.account = account or self._DEFAULT_ACCOUNT
         self.key = key
-        self._logger = logging.getLogger(__class__.__name__)
+        self._logger = logging.getLogger()
 
         override_endpoint = os.environ.get("IDENTITY_BROKER_ENDPOINT")
         if override_endpoint:
@@ -243,7 +274,7 @@ class GenReleaseReadme:
     def add_args(parser):
         parser.add_argument("profile", help="name of profile to update")
 
-    def run(self, args, root):
+    def run(self, args, root, log):
         ReleaseReadmeUpdater(root, args.profile).update_markdown()
 
 
@@ -263,18 +294,18 @@ class MakeAMIs:
         parser.add_argument("builds", nargs="*",
             help="name of builds within a profile to build")
 
-    def run(self, args, root):
+    def run(self, args, root, log):
         os.chdir(os.path.join(root, "build"))
 
         builds = args.builds or os.listdir(
             os.path.join("profile", args.profile))
 
         for build in builds:
-            print(f"\n*** Building {args.profile}/{build} ***\n\n")
+            log.info("\n*** Building %s/%s ***\n\n", args.profile, build)
 
             build_dir = os.path.join("profile", args.profile, build)
             if not os.path.exists(build_dir):
-                print(f"Build dir '{build_dir}' does not exist")
+                log.info("Build dir '%s' does not exist", build_dir)
                 break
 
             env = None
@@ -300,7 +331,7 @@ class MakeAMIs:
             while res.poll() is None:
                 text = res.stdout.readline()
                 out.write(text)
-                print(text, end="")
+                print(text, end="") # input is already colorized
 
             if res.returncode == 0:
                 UpdateReleases().update_readme(args.profile, build, root)
@@ -310,7 +341,7 @@ class MakeAMIs:
                 else:
                     sys.exit(res.returncode)
 
-        print("\n=== DONE ===\n")
+        log.info("\n=== DONE ===\n")
 
 
 class PruneAMIs:
@@ -344,7 +375,7 @@ class PruneAMIs:
 
             ec2.delete_snapshot(SnapshotId=blockdev["Ebs"]["SnapshotId"])
 
-    def run(self, args, root):
+    def run(self, args, root, log):
         now = datetime.utcnow()
         release_yaml = os.path.join(root, "releases", f"{args.profile}.yaml")
 
@@ -359,12 +390,13 @@ class PruneAMIs:
         for build_name, releases in before.items():
             # this is not the build that was specified
             if args.build is not None and args.build != build_name:
-                print(f"< skipping {args.profile}/{build_name}")
+                log.info("< skipping %s/%s", args.profile, build_name)
                 # ensure its release data remains intact
                 after[build_name] = before[build_name]
                 continue
             else:
-                print(f"> PRUNING {args.profile}/{build_name} for {args.level}")
+                log.info("> PRUNING %s/%s for %s",
+                    args.profile, build_name, args.level)
 
             criteria = {}
 
@@ -428,19 +460,19 @@ class PruneAMIs:
         for session in IdentityBrokerClient().iter_regions():
             region = session.region_name
 
-            print(f"* scanning: {region} ...")
+            log.info("* scanning: %s ...", region)
 
             ec2 = session.client("ec2")
             for image in ec2.describe_images(Owners=["self"])["Images"]:
                 image_name, image_id = image["Name"], image["ImageId"]
 
                 if region in prune and image["ImageId"] in prune[region]:
-                    print(f"REMOVE: {image_name} = {image_id}")
+                    log.info("REMOVE: %s = %s", image_name, image_id)
                     self.delete_image(image)
                 elif region in known and image["ImageId"] in known[region]:
-                    print(f"KEEP: {image_name} = {image_id}")
+                    log.info("KEEP: %s = %s", image_name, image_id)
                 else:
-                    print(f"UNKNOWN: {image_name} = {image_id}")
+                    log.info("UNKNOWN: %s = %s", image_name, image_id)
 
         # update releases/<profile>.yaml
         with open(release_yaml, "w") as data:
@@ -595,7 +627,7 @@ class ResolveProfiles:
         else:
             builder.build_all()
 
-    def run(self, args, root):
+    def run(self, args, root, log):
         self.resolve_profiles(args.profile, root)
 
 
@@ -615,7 +647,7 @@ class UpdateReleases:
         parsed = re.split(":|,", ids)
         return dict(zip(parsed[0::2], parsed[1::2]))
 
-    def run(self, args, root):
+    def run(self, args, root, log):
         self.update_readme(args.profile, args.build, root)
 
     def update_readme(self, profile, build, root):
@@ -671,11 +703,9 @@ class ConvertPackerJSON:
     def add_args(parser):
         pass
 
-    def run(self, args, root):
+    def run(self, args, root, log):
         source = os.path.join(root, "packer.conf")
         dest = os.path.join(root, "build", "packer.json")
-
-        logging.getLogger().setLevel(logging.INFO)
 
         pyhocon.converter.HOCONConverter.convert_from_file(
             source, dest, "json", 2, False)
@@ -697,18 +727,18 @@ class FullBuild:
         parser.add_argument("builds", nargs="*",
             help="name of builds within a profile to build")
 
-    def run(self, args, root):
-        print("Converting packer.conf to JSON...", file=sys.stderr)
-        ConvertPackerJSON().run(args, root)
+    def run(self, args, root, log):
+        log.info("Converting packer.conf to JSON...")
+        ConvertPackerJSON().run(args, root, log)
 
-        print("Resolving profiles...", file=sys.stderr)
+        log.info("Resolving profiles...")
         ResolveProfiles().resolve_profiles([args.profile], root)
 
-        print("Running packer...", file=sys.stderr)
-        MakeAMIs().run(args, root)
+        log.info("Running packer...")
+        MakeAMIs().run(args, root, log)
 
-        print("Updating release readme...", file=sys.stderr)
-        GenReleaseReadme().run(args, root)
+        log.info("Updating release readme...")
+        GenReleaseReadme().run(args, root, log)
 
 
 def find_repo_root():
@@ -747,16 +777,24 @@ def main():
             rely on object state as it is not invoked with an instance of the
             object.
 
-        run(self, args, root) (instance method)
+        run(self, args, root, log) (instance method)
             passed the arguments object as parsed by argparse as well as a
             string indicating the root of the repository (the folder containing
-            the .git folder). Should throw exceptions on error and return when
-            completed. Should *not* execute sys.exit
+            the .git folder) and an instance of a stanard libary logger for
+            output. Should throw exceptions on error and return when completed.
+            Should *not* execute sys.exit
     """
     dispatch = {}
 
     parser = argparse.ArgumentParser()
     subs = parser.add_subparsers(dest="command_name", required=True)
+
+    # Configure logger
+    logger = logging.getLogger()
+    handler = logging.StreamHandler()
+    handler.setFormatter(ColoredFormatter(fmt="%(message)s"))
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
 
     for command in sys.modules[__name__].__dict__.values():
         if not hasattr(command, "command_name"):
@@ -773,7 +811,8 @@ def main():
             command.add_args(subparser)
 
     args = parser.parse_args()
-    dispatch[args.command_name].run(args, find_repo_root())
+    command = dispatch[args.command_name]
+    command.run(args, find_repo_root(), logger)
 
 
 if __name__ == "__main__":
