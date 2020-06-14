@@ -26,6 +26,8 @@ build_ami_owner       = "137112412989"
 build_ami_latest      = "true"
 
 # AMI build/deploy
+aws_profile     = null  # AWS profile to build AMI
+aws_accounts    = null  # comma-separated AWS accounts allowed to launch AMI
 ami_name_prefix = "alpine-ami-"
 ami_name_suffix = ""
 ami_desc_prefix = "Alpine Linux "
