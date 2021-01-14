@@ -1,7 +1,7 @@
 # Alpine Linux EC2 AMIs
 
-**These are not official AWS or Alpine images.  They are community built and
-supported.**
+These are the official Alpine AWS AMIs. For an index of images see the 
+[Alpine Website](https://alpinelinux.org/cloud/).
 
 These AMIs should work with most EC2 features -- such as ENIs (Elastic Network
 Interfaces) and NVMe EBS (Elastic Block Storage) volumes.  If you find any

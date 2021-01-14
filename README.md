@@ -1,7 +1,7 @@
 # Alpine Linux EC2 AMI Builder
 
-**NOTE: This is not an official AWS or Alpine project.  This is community built
-and supported.**
+These are the official Alpine AWS AMIs. For an index of images see the 
+[Alpine Website](https://alpinelinux.org/cloud/).
 
 ## Pre-Built AMIs
 
