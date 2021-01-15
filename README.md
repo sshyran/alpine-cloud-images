@@ -1,12 +1,13 @@
 # Alpine Linux EC2 AMI Builder
 
-These are the official Alpine AWS AMIs. For an index of images see the 
+These are the official Alpine AWS AMIs. For an index of images see the
 [Alpine Website](https://alpinelinux.org/cloud/).
 
 ## Pre-Built AMIs
 
-***To get started with one of our pre-built minimalist AMIs, please refer to the
-[README](releases/README.md) in the [releases](releases) subdirectory.***
+***To get started with a pre-built minimalist AMIs, visit
+https://alpinelinux.org/cloud, or the [README](releases/README.md) in the
+[releases](releases) subdirectory of this repo.***
 
 Alternately, with the right filters, you can query the EC2 API to programmatically
 find our most recent AMIs.  For example, using the `aws` command line tool...
@@ -87,15 +88,12 @@ your profile's `releases/<profile>.yaml`.  There are three different levels of
 pruning:
 * `revision` - keep only the latest revision for each release
 * `release` - keep only the latest release for each version
-* `version` - remove any end-of-life versions
+* `end-of-life` - remove any end-of-life versions
 
 To prune a profile (or optionally one build target of a profile)...
 ```
 ./scripts/builder.py prune-amis <profile> [<build>]
 ```
-
-Any AMIs in the account which are "unknown" (to the profile/build target, at
-least) will be called out as such, but will not be pruned.
 
 ### Updating the Release README
 
