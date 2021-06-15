@@ -227,6 +227,7 @@ install_grub_efi() {
     install -D "$TARGET/boot/efi/EFI/alpine/grub$fwa.efi" "$TARGET/boot/efi/EFI/boot/boot$fwa.efi"
 
     # install default grub config
+    envsubst < "$SETUP/etc/grub.template" > "$SETUP/etc/grub"
     install -o root -g root -Dm644 -t "$TARGET/etc/default" \
         "$SETUP/etc/grub"
 

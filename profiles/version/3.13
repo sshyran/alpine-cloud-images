@@ -4,10 +4,9 @@
 # based on current
 include required("../base/current")
 
-# add edge-specific tweaks...
+# set version-specific vars
 version     = "3.13"
 end_of_life = "2022-11-01"
-
 repos {
   "http://dl-cdn.alpinelinux.org/alpine/v3.13/main"      = true
   "http://dl-cdn.alpinelinux.org/alpine/v3.13/community" = true
