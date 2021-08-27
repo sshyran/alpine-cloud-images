@@ -1,8 +1,8 @@
 ### edge vars
 # vim: ts=2 et:
 
-# based on current
-include required("../base/current")
+# start with base vars
+include required("../base/3")
 
 # add edge-specific tweaks...
 version     = "edge"

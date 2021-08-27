@@ -1,8 +1,8 @@
 ### version 3.13 vars
 # vim: ts=2 et:
 
-# based on current
-include required("../base/current")
+# start with base vars
+include required("../base/2")
 
 # set version-specific vars
 version     = "3.13"

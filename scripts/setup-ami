@@ -298,12 +298,17 @@ enable_services() {
 }
 
 create_alpine_user() {
-    # Allow members of the wheel group to sudo without a password. By default
-    # this will only be the alpine user. This allows us to ship an AMI that is
-    # accessible via SSH using the user's configured SSH keys (thanks to
-    # tiny-ec2-bootstrap) but does not allow remote root access which is the
+    # Allow members of the wheel group to sudo/doas without a password. By
+    # default this will only be the alpine user. This allows us to ship an AMI
+    # that is accessible via SSH using the user's configured SSH keys (thanks
+    # to tiny-ec2-bootstrap) but does not allow remote root access which is the
     # best-practice.
-    sed -i '/%wheel .* NOPASSWD: .*/s/^# //' "$TARGET/etc/sudoers"
+    if grep -q '^sudo$' "$TARGET/etc/apk/world"; then
+        sed -i '/%wheel .* NOPASSWD: .*/s/^# //' "$TARGET/etc/sudoers"
+    fi
+    if grep -q '^doas$' "$TARGET/etc/apk/world"; then
+        echo "permit nopass :wheel" >> "$TARGET/etc/doas.conf"
+    fi
 
     # explicitly lock the root account
     chroot "$TARGET" /usr/bin/passwd -l root
