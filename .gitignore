@@ -1,4 +1,5 @@
-**/*~
-**/*.bak
-**/*.swp
-/build/
+*~
+*.bak
+*.swp
+.vscode/
+/work/
