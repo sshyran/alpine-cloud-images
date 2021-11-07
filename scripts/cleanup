@@ -1,0 +1,42 @@
+#!/bin/sh -eu
+# vim: ts=4 et:
+
+[ -z "$DEBUG" ] || set +x
+
+export \
+    TARGET=/mnt
+
+
+die() {
+    printf '\033[1;7;31m FATAL: %s \033[0m\n' "$@" >&2  # bold reversed red
+    exit 1
+}
+einfo() {
+    printf '\n\033[1;7;36m> %s <\033[0m\n' "$@" >&2     # bold reversed cyan
+}
+
+cleanup() {
+    # Sweep cruft out of the image that doesn't need to ship or will be
+    # re-generated when the image boots
+    rm -f \
+        "$TARGET/var/cache/apk/"* \
+        "$TARGET/etc/resolv.conf" \
+        "$TARGET/root/.ash_history" \
+        "$TARGET/etc/"*-
+
+    # unmount extra EFI mount
+    if [ "$FIRMWARE" = uefi ]; then
+      umount "$TARGET/boot/efi"
+    fi
+
+    umount \
+        "$TARGET/dev" \
+        "$TARGET/proc" \
+        "$TARGET/sys"
+
+    umount "$TARGET"
+}
+
+einfo "Cleaning up and unmounting image volume..."
+cleanup
+einfo "Done!"

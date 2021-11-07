@@ -1,0 +1,222 @@
+#!/bin/sh -eu
+# vim: ts=4 et:
+
+[ -z "$DEBUG" -o "$DEBUG" = 0 ] || set -x
+
+export \
+    DEVICE=/dev/vda \
+    TARGET=/mnt \
+    SETUP=/tmp/setup.d
+
+
+die() {
+    printf '\033[1;7;31m FATAL: %s \033[0m\n' "$@" >&2  # bold reversed red
+    exit 1
+}
+einfo() {
+    printf '\n\033[1;7;36m> %s <\033[0m\n' "$@" >&2     # bold reversed cyan
+}
+
+# set up the builder's environment
+setup_builder() {
+    einfo "Setting up Builder Instance"
+    setup-apkrepos -1   # main repo via dl-cdn
+    # ODO? also uncomment community repo?
+    apk --no-cache add \
+        e2fsprogs \
+        dosfstools \
+        gettext \
+        lsblk \
+        parted
+}
+
+make_filesystem() {
+    einfo "Making the Filesystem"
+    root_dev=$DEVICE
+
+    # make sure we're using a blank block device
+    lsblk -P --fs "$DEVICE" >/dev/null 2>&1 || \
+        die "'$DEVICE' is not a valid block device"
+    if lsblk -P --fs "$DEVICE" | grep -vq 'FSTYPE=""'; then
+        die "Block device '$DEVICE' is not blank"
+    fi
+
+    if [ "$FIRMWARE" = uefi ]; then
+        # EFI partition isn't optimally aligned, but is rarely used after boot
+        parted "$DEVICE" -- \
+            mklabel gpt \
+            mkpart EFI fat32 512KiB 1MiB \
+            mkpart / ext4 1MiB 100% \
+            set 1 esp on \
+            unit MiB print
+
+        root_dev="${DEVICE}2"
+        /usr/sbin/mkfs.fat -n EFI "${DEVICE}1"
+    fi
+
+    mkfs.ext4 -O ^64bit -L / "$root_dev"
+    mkdir -p "$TARGET"
+    mount -t ext4 "$root_dev" "$TARGET"
+
+    if [ "$FIRMWARE" = uefi ]; then
+        mkdir -p "$TARGET/boot/efi"
+        mount -t vfat "${DEVICE}1" "$TARGET/boot/efi"
+    fi
+}
+
+install_base() {
+    einfo "Installing Alpine Base"
+    mkdir -p "$TARGET/etc/apk"
+    echo "$REPOS" > "$TARGET/etc/apk/repositories"
+    cp -a /etc/apk/keys "$TARGET/etc/apk"
+    apk --root "$TARGET" --initdb --no-cache add $PACKAGES_ADD
+    [ -z "$PACKAGES_NOSCRIPTS" ] || \
+        apk --root "$TARGET" --no-cache --no-scripts add $PACKAGES_NOSCRIPTS
+    [ -z "$PACKAGES_DEL" ] || \
+        apk --root "$TARGET" --no-cache del $PACKAGES_DEL
+}
+
+setup_chroot() {
+    mount -t proc none "$TARGET/proc"
+    mount --bind /dev "$TARGET/dev"
+    mount --bind /sys "$TARGET/sys"
+
+    # Needed for bootstrap, will be removed in the cleanup stage.
+    install -Dm644 /etc/resolv.conf "$TARGET/etc/resolv.conf"
+}
+
+install_bootloader() {
+    einfo "Installing Bootloader"
+
+    # create initfs
+    sed -Ei "s/^features=\"([^\"]+)\"/features=\"\1 $INITFS_FEATURES\"/" \
+        "$TARGET/etc/mkinitfs/mkinitfs.conf"
+    # shellcheck disable=SC2046
+    chroot "$TARGET" /sbin/mkinitfs $(basename $(find "$TARGET/lib/modules/"* -maxdepth 0))
+
+    if [ "$FIRMWARE" = uefi ]; then
+        install_grub_efi
+    else
+        install_extlinux
+    fi
+}
+
+install_extlinux() {
+    # Use disk labels instead of UUID or devices paths so that this works across
+    # instance familes.  UUID works for many instances but breaks on the NVME
+    # ones because EBS volumes are hidden behind NVME devices.
+    #
+    # Shorten timeout (1/10s), eliminating delays for instance launches.
+    #
+    # ttyS0 is for EC2 Console "Get system log" and "EC2 Serial Console"
+    # features, whereas tty0 is for "Get Instance screenshot" feature.  Enabling
+    # the port early in extlinux gives the most complete output in the log.
+    #
+    # TODO: review for other clouds -- this may need to be cloud-specific.
+    sed -Ei -e "s|^[# ]*(root)=.*|\1=LABEL=/|" \
+        -e "s|^[# ]*(default_kernel_opts)=.*|\1=\"$KERNEL_OPTIONS\"|" \
+        -e "s|^[# ]*(serial_port)=.*|\1=ttyS0|" \
+        -e "s|^[# ]*(modules)=.*|\1=$KERNEL_MODULES|" \
+        -e "s|^[# ]*(default)=.*|\1=virt|" \
+        -e "s|^[# ]*(timeout)=.*|\1=1|" \
+        "$TARGET/etc/update-extlinux.conf"
+
+    chroot "$TARGET" /sbin/extlinux --install /boot
+    # TODO: is this really necessary?  can we set all this stuff during --install?
+    chroot "$TARGET" /sbin/update-extlinux --warn-only
+}
+
+install_grub_efi() {
+    [ -d "/sys/firmware/efi" ] || die "/sys/firmware/efi does not exist"
+
+    case "$ARCH" in
+        x86_64)     grub_target=x86_64-efi ; fwa=x64 ;;
+        aarch64)    grub_target=arm64-efi ; fwa=aa64 ;;
+        *)          die "ARCH=$ARCH is currently unsupported" ;;
+    esac
+
+    # disable nvram so grub doesn't call efibootmgr
+    chroot "$TARGET" /usr/sbin/grub-install --target="$grub_target" --efi-directory=/boot/efi \
+        --bootloader-id=alpine --boot-directory=/boot --no-nvram
+
+    # fallback mode
+    install -D "$TARGET/boot/efi/EFI/alpine/grub$fwa.efi" "$TARGET/boot/efi/EFI/boot/boot$fwa.efi"
+
+    # install default grub config
+    envsubst < "$SETUP/grub.template" > "$SETUP/grub"
+    install -o root -g root -Dm644 -t "$TARGET/etc/default" \
+        "$SETUP/grub"
+
+    # generate/install new config
+    chroot "$TARGET" grub-mkconfig -o /boot/grub/grub.cfg
+}
+
+configure_system() {
+    einfo "Configuring System"
+
+    # setup fstab
+    install -o root -g root -Dm644 -t "$TARGET/etc" \
+        "$SETUP/fstab"
+    # if we're using an EFI bootloader, add extra line for EFI partition
+    if [ "$FIRMWARE" = uefi ]; then
+        cat "$SETUP/fstab.grub-efi" >> "$TARGET/etc/fstab"
+    fi
+
+    # Disable getty for physical ttys, enable getty for serial ttyS0.
+    sed -Ei -e '/^tty[0-9]/s/^/#/' -e '/^#ttyS0:/s/^#//' "$TARGET/etc/inittab"
+
+    # setup sudo and/or doas
+    if grep -q '^sudo$' "$TARGET/etc/apk/world"; then
+        echo '%wheel ALL=(ALL) NOPASSWD: ALL' > "$TARGET/etc/sudoers.d/wheel"
+    fi
+    if grep -q '^doas$' "$TARGET/etc/apk/world"; then
+        echo 'permit nopass :wheel' > "$TARGET/etc/doas.d/wheel.conf"
+    fi
+
+    # explicitly lock the root account
+    chroot "$TARGET" /usr/bin/passwd -l root
+
+    # set up image user
+    user="${IMAGE_LOGIN:-alpine}"
+    chroot "$TARGET" /usr/sbin/addgroup "$user"
+    chroot "$TARGET" /usr/sbin/adduser -h "/home/$user" -s /bin/sh -G "$user" -D "$user"
+    chroot "$TARGET" /usr/sbin/addgroup "$user" wheel
+    chroot "$TARGET" /usr/bin/passwd -u "$user"
+
+    # modify PS1s in /etc/profile to add user
+    sed -Ei \
+        -e "s/(^PS1=')(\\$\\{HOSTNAME%)/\\1\\$\\USER@\\2/" \
+        -e "s/( PS1=')(\\\\h:)/\\1\\\\u@\\2/" \
+        -e "s/( PS1=')(%m:)/\\1%n@\\2/" \
+        "$TARGET"/etc/profile
+
+    setup_services
+}
+
+# shellcheck disable=SC2046
+setup_services() {
+    for lvl_svcs in $SERVICES_ENABLE; do
+        rc add $(echo "$lvl_svcs" | tr '=,' ' ')
+    done
+    for lvl_svcs in $SERVICES_DISABLE; do
+        rc del $(echo "$lvl_svcs" | tr '=,' ' ')
+    done
+}
+
+rc() {
+    op="$1"         # add or del
+    runlevel="$2"   # runlevel name
+    shift 2
+    services="$*"   # names of services
+
+    for svc in $services; do
+        chroot "$TARGET" rc-update "$op" "$svc" "$runlevel"
+    done
+}
+
+setup_builder
+make_filesystem
+install_base
+setup_chroot
+install_bootloader
+configure_system
