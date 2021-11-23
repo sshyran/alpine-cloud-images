@@ -9,7 +9,7 @@
 # It is our intention to eventually incorporate this in a tiny-cloud-bootstrap
 #   package (and per-cloud subpackages).
 
-[ -z "$DEBUG" -o "$DEBUG" = 0 ] || set -x
+[ -z "$DEBUG" ] || [ "$DEBUG" = 0 ] || set -x
 
 TARGET=/mnt
 SETUP=/tmp/setup-tiny.d
