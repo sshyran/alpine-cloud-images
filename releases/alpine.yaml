@@ -1,11 +1,11 @@
-'3.15':
+3.15.0:
   3.15-x86_64-bios-tiny-aws:
     alpine-3.15.0-x86_64-bios-tiny-r0:
       arch: x86_64
       bootstrap: tiny
       cloud: aws
       description: Alpine Linux 3.15.0 - https://alpine.linux.org/cloud
-      end_of_life: '2021-11-25'
+      end_of_life: '2023-11-01'
       firmware: bios
       image_key: 3.15.0-x86_64-bios-tiny-aws
       name: alpine-3.15.0-x86_64-bios-tiny-r0
@@ -19,18 +19,17 @@
       published: '2021-11-24T17:17:33.103711'
       creation_date: '2021-11-24T17:17:33.103711'
       artifacts:
-        us-west-2: ami-0888066001881089e
+        af-south-1: ami-0b8c72fa6afc6c4bc
         eu-north-1: ami-03b8d854057c9279a
         ap-south-1: ami-0be36fc5e1c7b9531
         eu-west-3: ami-07990de4ffb2037b3
         eu-west-2: ami-0d3e9bfe678c66757
         eu-south-1: ami-09dfab72d54bee282
         eu-west-1: ami-08f4abd198c1c407e
+        ap-northeast-3: ami-058e5ec5e59eea28a
         ap-northeast-2: ami-080a3a98d413a2eed
         me-south-1: ami-0cc9b12afa384aa93
         ap-northeast-1: ami-0dc4347a3793c61a4
-        af-south-1: ami-0b8c72fa6afc6c4bc
-        ap-northeast-3: ami-058e5ec5e59eea28a
         sa-east-1: ami-06bd0957ab7efe107
         ca-central-1: ami-020cc684a770ea3e4
         ap-east-1: ami-02cb2efac688aa9fb
@@ -40,13 +39,14 @@
         us-east-1: ami-07521aebcf46859ee
         us-east-2: ami-091d4fc21e34d615e
         us-west-1: ami-0e01e31d64a75ecc0
+        us-west-2: ami-0888066001881089e
   3.15-aarch64-uefi-tiny-aws:
     alpine-3.15.0-aarch64-uefi-tiny-r0:
       arch: aarch64
       bootstrap: tiny
       cloud: aws
       description: Alpine Linux 3.15.0 - https://alpine.linux.org/cloud
-      end_of_life: '2021-11-25'
+      end_of_life: '2023-11-01'
       firmware: uefi
       image_key: 3.15.0-aarch64-uefi-tiny-aws
       name: alpine-3.15.0-aarch64-uefi-tiny-r0
@@ -60,7 +60,6 @@
       published: '2021-11-24T17:17:32.721027'
       creation_date: '2021-11-24T17:17:32.721027'
       artifacts:
-        us-west-2: ami-0e9498f2ed7597799
         af-south-1: ami-0d0f68dd63f9d7759
         eu-north-1: ami-0f9a81e7acab80b19
         ap-south-1: ami-02ca2890f367aef54
@@ -81,7 +80,8 @@
         us-east-1: ami-04c42a60bd022b777
         us-east-2: ami-0f28870083ff305a6
         us-west-1: ami-03ca4b61552f2e047
-'3.14':
+        us-west-2: ami-0e9498f2ed7597799
+3.14.3:
   3.14-x86_64-bios-tiny-aws:
     alpine-3.14.3-x86_64-bios-tiny-r0:
       arch: x86_64
@@ -102,7 +102,6 @@
       published: '2021-11-24T17:17:32.770370'
       creation_date: '2021-11-24T17:17:32.770370'
       artifacts:
-        us-west-2: ami-006c1f37b6febe707
         af-south-1: ami-0a267d556f535a738
         eu-north-1: ami-0db0fb686710e507a
         ap-south-1: ami-0bd7526f06c52ce19
@@ -110,10 +109,10 @@
         eu-west-2: ami-0acb21e0a12420fbe
         eu-south-1: ami-004463b28dca0e458
         eu-west-1: ami-071e77bbab4a1fde2
+        ap-northeast-3: ami-0c3889188d8b7e9f9
         ap-northeast-2: ami-03d44712c44146409
         me-south-1: ami-044c5d2bcff12ed95
         ap-northeast-1: ami-09aca50b596a24da8
-        ap-northeast-3: ami-0c3889188d8b7e9f9
         sa-east-1: ami-0f0fc907749e64ca0
         ca-central-1: ami-05b68ed0e7aeeff27
         ap-east-1: ami-03a8e8b32135cbfef
@@ -123,6 +122,7 @@
         us-east-1: ami-0e6c33e2c675dd867
         us-east-2: ami-0315ef8c8682d4eca
         us-west-1: ami-02574ed4727c03cd0
+        us-west-2: ami-006c1f37b6febe707
   3.14-aarch64-uefi-tiny-aws:
     alpine-3.14.3-aarch64-uefi-tiny-r0:
       arch: aarch64
@@ -143,7 +143,6 @@
       published: '2021-11-24T17:17:32.872207'
       creation_date: '2021-11-24T17:17:32.872207'
       artifacts:
-        us-west-2: ami-00f55d71daf7114b5
         af-south-1: ami-018e6c7f45a1df2c5
         eu-north-1: ami-02eee773ea51a4ce6
         ap-south-1: ami-0dac033d409d2cb6c
@@ -164,7 +163,8 @@
         us-east-1: ami-0f756a4db96e5bc57
         us-east-2: ami-0aa79f8e116fd52f2
         us-west-1: ami-07136b1572e761885
-'3.13':
+        us-west-2: ami-00f55d71daf7114b5
+3.13.7:
   3.13-x86_64-bios-tiny-aws:
     alpine-3.13.7-x86_64-bios-tiny-r0:
       arch: x86_64
@@ -185,7 +185,6 @@
       published: '2021-11-24T17:17:33.063381'
       creation_date: '2021-11-24T17:17:33.063381'
       artifacts:
-        us-west-2: ami-0d14a4f1ca77ab874
         af-south-1: ami-0ca43be5e807e6120
         eu-north-1: ami-03fd2303d1e9e1864
         ap-south-1: ami-096193815a68b914b
@@ -206,6 +205,7 @@
         us-east-1: ami-0846ac17f427ef08f
         us-east-2: ami-060a586e93190070d
         us-west-1: ami-0019cd52d9b6512dc
+        us-west-2: ami-0d14a4f1ca77ab874
   3.13-aarch64-uefi-tiny-aws:
     alpine-3.13.7-aarch64-uefi-tiny-r0:
       arch: aarch64
@@ -226,7 +226,6 @@
       published: '2021-11-24T17:17:34.022389'
       creation_date: '2021-11-24T17:17:34.022389'
       artifacts:
-        us-west-2: ami-03f0a251fa5e8dacf
         af-south-1: ami-0becdc7fcf688fe9b
         eu-north-1: ami-06c00f7e7bec845bd
         ap-south-1: ami-0005f8f05e8cbc53c
@@ -247,7 +246,8 @@
         us-east-1: ami-06926d0dc844c6678
         us-east-2: ami-05ba4b626acf5c61c
         us-west-1: ami-0e00612cdc65338da
-'3.12':
+        us-west-2: ami-03f0a251fa5e8dacf
+3.12.9:
   3.12-x86_64-bios-tiny-aws:
     alpine-3.12.9-x86_64-bios-tiny-r0:
       arch: x86_64
@@ -268,7 +268,6 @@
       published: '2021-11-24T17:17:33.003409'
       creation_date: '2021-11-24T17:17:33.003409'
       artifacts:
-        us-west-2: ami-0606ba93f575bc324
         af-south-1: ami-07961483542c76059
         eu-north-1: ami-0ca21579367c944ae
         ap-south-1: ami-023114438282bbd1c
@@ -289,6 +288,7 @@
         us-east-1: ami-06267847e8bae0ebc
         us-east-2: ami-06b7e22c1f2aa5d41
         us-west-1: ami-0fdfe205b66c0bbe9
+        us-west-2: ami-0606ba93f575bc324
   3.12-aarch64-uefi-tiny-aws:
     alpine-3.12.9-aarch64-uefi-tiny-r0:
       arch: aarch64
@@ -309,14 +309,13 @@
       published: '2021-11-24T17:17:33.005450'
       creation_date: '2021-11-24T17:17:33.005450'
       artifacts:
-        us-west-2: ami-078d9c708d6e23fbc
+        af-south-1: ami-023f02f5e5572d51a
         eu-north-1: ami-0ddcd412f5d804b46
         ap-south-1: ami-0e5645abf07b9d537
         eu-west-3: ami-08f1c8c0fc46d2b79
         eu-west-2: ami-062dbb51e4d148e75
         eu-south-1: ami-0195d8d5731d847f0
         eu-west-1: ami-0bd3ff066b5e8b79c
-        af-south-1: ami-023f02f5e5572d51a
         ap-northeast-3: ami-080b7152413680ece
         ap-northeast-2: ami-0584d1f2b11ed431d
         me-south-1: ami-00f30eb5bb602f0d5
@@ -330,6 +329,7 @@
         us-east-1: ami-00ce4e2f9a835fe8f
         us-east-2: ami-052cd2d3c5461a7f1
         us-west-1: ami-08addb1e7af4a3779
+        us-west-2: ami-078d9c708d6e23fbc
 edge:
   edge-x86_64-bios-tiny-aws:
     alpine-20211124-x86_64-bios-tiny-r0:
@@ -351,7 +351,6 @@ edge:
       published: '2021-11-24T17:17:32.865193'
       creation_date: '2021-11-24T17:17:32.865193'
       artifacts:
-        us-west-2: ami-0777a41574a8b93bc
         af-south-1: ami-0a630d6435865d6dc
         eu-north-1: ami-0a2139a79fa9a1c41
         ap-south-1: ami-045d88454495b6cbb
@@ -372,6 +371,7 @@ edge:
         us-east-1: ami-0084d6ba3cd978d7b
         us-east-2: ami-00b12ba2e1c2ef978
         us-west-1: ami-0bbfbfcf1a6d383b7
+        us-west-2: ami-0777a41574a8b93bc
   edge-aarch64-uefi-tiny-aws:
     alpine-20211124-aarch64-uefi-tiny-r0:
       arch: aarch64
@@ -392,7 +392,6 @@ edge:
       published: '2021-11-24T17:17:33.234925'
       creation_date: '2021-11-24T17:17:33.234925'
       artifacts:
-        us-west-2: ami-0d8a510376c70ae8e
         af-south-1: ami-03ddddd6fbf51a3d8
         eu-north-1: ami-03dadd31f8fea0c57
         ap-south-1: ami-057f284c89d1c5c3e
@@ -413,3 +412,4 @@ edge:
         us-east-1: ami-0c600f00d51017308
         us-east-2: ami-0d0edbac67dd85ab8
         us-west-1: ami-08c1c3e91ab110653
+        us-west-2: ami-0d8a510376c70ae8e
