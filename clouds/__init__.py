@@ -16,9 +16,9 @@ register(aws)   # , oci, azure, gcp)
 
 
 # using a credential provider is optional, set across all adapters
-def set_credential_provider():
+def set_credential_provider(debug=False):
     from .identity_broker_client import IdentityBrokerClient
-    cred_provider = IdentityBrokerClient()
+    cred_provider = IdentityBrokerClient(debug=debug)
     for adapter in ADAPTERS.values():
         adapter.cred_provider = cred_provider
 
@@ -26,15 +26,18 @@ def set_credential_provider():
 ### forward to the correct adapter
 
 def latest_build_image(config):
-    return ADAPTERS[config.cloud].latest_build_image(config.name)
+    return ADAPTERS[config.cloud].latest_build_image(
+        config.project,
+        config.image_key
+    )
 
 
 def import_image(config):
     return ADAPTERS[config.cloud].import_image(config)
 
 
-def remove_image(config):
-    return ADAPTERS[config.cloud].remove_image(config.remote_image['id'])
+def remove_image(config, image_id):
+    return ADAPTERS[config.cloud].remove_image(image_id)
 
 
 def publish_image(config):

@@ -59,6 +59,7 @@ class IdentityBrokerClient:
         return True
 
     def _get(self, path):
+        self._logger.debug("request: %s", path)
         if not self._is_cache_valid(path):
             while True:     # to handle rate limits
                 try:
@@ -95,6 +96,7 @@ class IdentityBrokerClient:
                 self._cache[path] = json.load(res)
                 break
 
+        self._logger.debug("response: %s", self._cache[path])
         return self._cache[path]
 
     def get_credentials_url(self, vendor):
@@ -117,7 +119,6 @@ class IdentityBrokerClient:
 
             if region['default']:
                 self._default_region[vendor] = region['name']
-                out[None] = region['credentials_url']
 
         return out
 
@@ -128,4 +129,7 @@ class IdentityBrokerClient:
         return self._default_region.get(vendor)
 
     def get_credentials(self, vendor, region=None):
+        if not region:
+            region = self.get_default_region(vendor)
+
         return self._get(self.get_regions(vendor)[region])

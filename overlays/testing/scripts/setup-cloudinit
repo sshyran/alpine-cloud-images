@@ -1,0 +1,27 @@
+#!/bin/sh -eu
+# vim: ts=4 et:
+
+[ -z "$DEBUG" ] || [ "$DEBUG" = 0 ] || set -x
+
+TARGET=/mnt
+#SETUP=/tmp/setup-cloudinit.d
+
+die() {
+    printf '\033[1;7;31m FATAL: %s \033[0m\n' "$@" >&2  # bold reversed red
+    exit 1
+}
+einfo() {
+    printf '\n\033[1;7;36m> %s <\033[0m\n' "$@" >&2     # bold reversed cyan
+}
+
+einfo "Installing up cloud-init bootstrap components..."
+
+# This adds the init scripts at the correct boot phases
+chroot "$TARGET" /sbin/setup-cloud-init
+
+# cloud-init locks our user by default which means alpine can't login from
+# SSH. This seems like a bug in cloud-init that should be fixed but we can
+# hack around it for now here.
+if [ -f "$TARGET"/etc/cloud/cloud.cfg ]; then
+    sed -i '/lock_passwd:/s/True/False/' "$TARGET"/etc/cloud/cloud.cfg
+fi

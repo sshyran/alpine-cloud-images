@@ -13,9 +13,11 @@ class CloudAdapterInterface:
     def sdk(self):
         raise NotImplementedError
 
+    @property
     def regions(self):
         raise NotImplementedError
 
+    @property
     def default_region(self):
         raise NotImplementedError
 
@@ -25,10 +27,8 @@ class CloudAdapterInterface:
     def session(self, region=None):
         raise NotImplementedError
 
-    def latest_build_image(self, build_name):
+    def latest_build_image(self, project, image_key):
         raise NotImplementedError
-
-    # TODO: be more specific about what gets passed into these
 
     def import_image(self, config):
         raise NotImplementedError

@@ -13,7 +13,6 @@ if not os.path.exists('work'):
     import venv
 
     PIP_LIBS = [
-        'pip',
         'mergedeep',
         'pyhocon',
         'python-dateutil',
@@ -21,6 +20,7 @@ if not os.path.exists('work'):
     ]
     print('Work environment does not exist, creating...', file=sys.stderr)
     venv.create('work', with_pip=True)
+    subprocess.run(['work/bin/pip', 'install', '-U', 'pip', 'wheel'])
     subprocess.run(['work/bin/pip', 'install', '-U', *PIP_LIBS])
 
 # Re-execute using the right virtual environment, if necessary.
@@ -109,6 +109,7 @@ def is_same_dir_symlink(x):
     return x_link == os.path.basename(x_link)
 
 
+# TODO: revisit this to improve --custom overlay implementation
 def install_overlay(overlay):
     log.info("Installing '%s' overlay in work environment", overlay)
     dest_dir = os.path.join('work', overlay)
@@ -123,7 +124,7 @@ def install_overlay(overlay):
             else:
                 rel_x = os.path.relpath(src_x, dest_dir)
 
-            # TODO: only images.conf symlink can be overridden
+            # TODO: only images.conf symlink can be overridden, in reality
             if os.path.islink(dest_x):
                 # only same-dir symlinks can be overridden
                 if not is_same_dir_symlink(dest_x):
@@ -230,7 +231,7 @@ log.debug(args)
 
 # set up credential provider, if we're going to use it
 if args.use_broker:
-    clouds.set_credential_provider()
+    clouds.set_credential_provider(debug=args.debug)
 
 ### Setup Configs
 
@@ -256,7 +257,7 @@ if args.step == 'configs':
 
 ### What needs doing?
 
-if not image_configs.determine_actions(
+if not image_configs.refresh_state(
         step=args.step, only=args.only, skip=args.skip, revise=args.revise):
     log.info('No pending actions to take at this time.')
     sys.exit(0)
@@ -307,4 +308,11 @@ if p.returncode != 0:
 
 log.info('Packer Completed')
 
-# TODO?  collect artifacts?
+# update final state in work/images.yaml
+image_configs.refresh_state(
+    step='final',
+    only=args.only,
+    skip=args.skip
+)
+
+log.info('Build Finished')
