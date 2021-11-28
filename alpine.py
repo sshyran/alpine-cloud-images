@@ -8,6 +8,8 @@ from urllib.request import urlopen
 CDN_URL = 'https://dl-cdn.alpinelinux.org/alpine'
 
 
+# TODO:  also get EOL from authoritative source
+
 def get_version_release(alpine_version):
     apk_ver = get_apk_version(alpine_version, 'main', 'x86_64', 'alpine-base')
     release = apk_ver.split('-')[0]
@@ -16,6 +18,7 @@ def get_version_release(alpine_version):
 
 
 # TODO?  maybe download and parse APKINDEX instead?
+# also check out https://dl-cdn.alpinelinux.org/alpine/v3.15/releases/x86_64/latest-releases.yaml
 def get_apk_version(alpine_version, repo, arch, apk):
     repo_url = f"{CDN_URL}/{alpine_version}/{repo}/{arch}"
     apks_re = re.compile(f'"{apk}-(\\d.*)\\.apk"')

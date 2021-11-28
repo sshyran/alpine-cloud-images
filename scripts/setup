@@ -51,7 +51,7 @@ make_filesystem() {
             unit MiB print
 
         root_dev="${DEVICE}2"
-        /usr/sbin/mkfs.fat -n EFI "${DEVICE}1"
+        mkfs.fat -n EFI "${DEVICE}1"
     fi
 
     mkfs.ext4 -O ^64bit -L / "$root_dev"
@@ -69,9 +69,12 @@ install_base() {
     mkdir -p "$TARGET/etc/apk"
     echo "$REPOS" > "$TARGET/etc/apk/repositories"
     cp -a /etc/apk/keys "$TARGET/etc/apk"
+    # shellcheck disable=SC2086
     apk --root "$TARGET" --initdb --no-cache add $PACKAGES_ADD
+    # shellcheck disable=SC2086
     [ -z "$PACKAGES_NOSCRIPTS" ] || \
         apk --root "$TARGET" --no-cache --no-scripts add $PACKAGES_NOSCRIPTS
+    # shellcheck disable=SC2086
     [ -z "$PACKAGES_DEL" ] || \
         apk --root "$TARGET" --no-cache del $PACKAGES_DEL
 }
@@ -89,10 +92,28 @@ install_bootloader() {
     einfo "Installing Bootloader"
 
     # create initfs
+
+    # shellcheck disable=SC2046
+    kernel=$(basename $(find "$TARGET/lib/modules/"* -maxdepth 0))
+
+    # ensure features can be found by mkinitfs
+    for FEATURE in $INITFS_FEATURES; do
+        # already taken care of?
+        [ -f "$TARGET/etc/mkinitfs/features.d/$FEATURE.modules" ] || \
+            [ -f "$TARGET/etc/mkinitfs/features.d/$FEATURE.files" ] && continue
+        # find the kernel module directory
+        module=$(chroot "$TARGET" /sbin/modinfo -k "$kernel" -n "$FEATURE")
+        [ -z "$module" ] && die "initfs_feature '$FEATURE' kernel module not found"
+        # replace everything after .ko with a *
+        echo "$module" | cut -d/ -f5- | sed -e 's/\.ko.*/.ko*/' \
+            > "$TARGET/etc/mkinitfs/features.d/$FEATURE.modules"
+    done
+
+    # TODO? this appends INITFS_FEATURES, we may want to allow removal someday?
     sed -Ei "s/^features=\"([^\"]+)\"/features=\"\1 $INITFS_FEATURES\"/" \
         "$TARGET/etc/mkinitfs/mkinitfs.conf"
-    # shellcheck disable=SC2046
-    chroot "$TARGET" /sbin/mkinitfs $(basename $(find "$TARGET/lib/modules/"* -maxdepth 0))
+
+    chroot "$TARGET" /sbin/mkinitfs "$kernel"
 
     if [ "$FIRMWARE" = uefi ]; then
         install_grub_efi
@@ -174,6 +195,7 @@ configure_system() {
     fi
 
     # explicitly lock the root account
+    chroot "$TARGET" /bin/sh -c "/bin/echo 'root:*' | /usr/sbin/chpasswd -e"
     chroot "$TARGET" /usr/bin/passwd -l root
 
     # set up image user
@@ -181,7 +203,7 @@ configure_system() {
     chroot "$TARGET" /usr/sbin/addgroup "$user"
     chroot "$TARGET" /usr/sbin/adduser -h "/home/$user" -s /bin/sh -G "$user" -D "$user"
     chroot "$TARGET" /usr/sbin/addgroup "$user" wheel
-    chroot "$TARGET" /usr/bin/passwd -u "$user"
+    chroot "$TARGET" /bin/sh -c "echo '$user:*' | /usr/sbin/chpasswd -e"
 
     # modify PS1s in /etc/profile to add user
     sed -Ei \
@@ -189,6 +211,9 @@ configure_system() {
         -e "s/( PS1=')(\\\\h:)/\\1\\\\u@\\2/" \
         -e "s/( PS1=')(%m:)/\\1%n@\\2/" \
         "$TARGET"/etc/profile
+
+    # write /etc/motd
+    echo "$MOTD" > "$TARGET"/etc/motd
 
     setup_services
 }

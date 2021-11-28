@@ -3,7 +3,6 @@
 import itertools
 import logging
 import mergedeep
-import os
 import pyhocon
 import shutil
 
@@ -30,7 +29,6 @@ class ImageConfigManager():
 
         self.yaml = YAML()
         self.yaml.register_class(ImageConfig)
-        self.yaml.default_flow_style = False
         self.yaml.explicit_start = True
         # hide !ImageConfig tag from Packer
         self.yaml.representer.org_represent_mapping = self.yaml.representer.represent_mapping
@@ -50,8 +48,7 @@ class ImageConfigManager():
 
     # load already-resolved YAML configs, restoring ImageConfig objects
     def _load_yaml(self):
-        # TODO: no warning if we're being called from cloud_helper.py
-        self.log.warning('Loading existing %s', self.yaml_path)
+        self.log.info('Loading existing %s', self.yaml_path)
         for key, config in self.yaml.load(self.yaml_path).items():
             self._configs[key] = ImageConfig(key, config)
 
@@ -74,18 +71,29 @@ class ImageConfigManager():
         # set version releases
         for v, vcfg in cfg.Dimensions.version.items():
             # version keys are quoted to protect dots
-            self.set_version_release(v.strip('"'), vcfg)
+            self._set_version_release(v.strip('"'), vcfg)
 
         dimensions = list(cfg.Dimensions.keys())
         self.log.debug('dimensions: %s', dimensions)
 
         for dim_keys in (itertools.product(*cfg['Dimensions'].values())):
-            image_key = '-'.join(dim_keys).replace('"', '')
+            config_key = '-'.join(dim_keys).replace('"', '')
 
             # dict of dimension -> dimension_key
             dim_map = dict(zip(dimensions, dim_keys))
+
+            # replace version with release, and make image_key from that
             release = cfg.Dimensions.version[dim_map['version']].release
-            image_config = ImageConfig(image_key, {'release': release} | dim_map)
+            (rel_map := dim_map.copy())['version'] = release
+            image_key = '-'.join(rel_map.values())
+
+            image_config = ImageConfig(
+                config_key,
+                {
+                    'image_key': image_key,
+                    'release': release
+                } | dim_map
+            )
 
             # merge in the Default config
             image_config._merge(cfg.Default)
@@ -93,11 +101,18 @@ class ImageConfigManager():
             # merge in each dimension key's configs
             for dim, dim_key in dim_map.items():
                 dim_cfg = deepcopy(cfg.Dimensions[dim][dim_key])
+
                 exclude = dim_cfg.pop('EXCLUDE', None)
                 if exclude and set(exclude) & set(dim_keys):
-                    self.log.debug('%s SKIPPED, %s excludes %s', image_key, dim_key, exclude)
+                    self.log.debug('%s SKIPPED, %s excludes %s', config_key, dim_key, exclude)
                     skip = True
                     break
+
+                if eol := dim_cfg.get('end_of_life', None):
+                    if self.now > datetime.fromisoformat(eol):
+                        self.log.warning('%s SKIPPED, %s end_of_life %s', config_key, dim_key, eol)
+                        skip = True
+                        break
 
                 image_config._merge(dim_cfg)
 
@@ -122,40 +137,41 @@ class ImageConfigManager():
             image_config.qemu['iso_url'] = self.iso_url_format.format(arch=image_config.arch)
 
             # we've resolved everything, add tags attribute to config
-            self._configs[image_key] = image_config
+            self._configs[config_key] = image_config
 
         self._save_yaml()
 
     # set current version release
-    def set_version_release(self, v, c):
+    def _set_version_release(self, v, c):
         if v == 'edge':
             c.put('release', self.now.strftime('%Y%m%d'))
             c.put('end_of_life', self.tomorrow.strftime('%F'))
         else:
             c.put('release', get_version_release(f"v{v}")['release'])
 
-        # release is also appended to build name array
+        # release is also appended to name & description arrays
         c.put('name', [c.release])
+        c.put('description', [c.release])
 
     # update current config status
-    def determine_actions(self, step, only, skip, revise):
-        self.log.info('Determining Actions')
+    def refresh_state(self, step, only=[], skip=[], revise=False):
+        self.log.info('Refreshing State')
         has_actions = False
         for ic in self._configs.values():
             # clear away any previous actions
             if hasattr(ic, 'actions'):
                 delattr(ic, 'actions')
 
-            dim_keys = set(ic.image_key.split('-'))
+            dim_keys = set(ic.config_key.split('-'))
             if only and len(set(only) & dim_keys) != len(only):
-                self.log.debug("%s SKIPPED, doesn't match --only", ic.image_key)
+                self.log.debug("%s SKIPPED, doesn't match --only", ic.config_key)
                 continue
 
             if skip and len(set(skip) & dim_keys) > 0:
-                self.log.debug('%s SKIPPED, matches --skip', ic.image_key)
+                self.log.debug('%s SKIPPED, matches --skip', ic.config_key)
                 continue
 
-            ic.determine_actions(step, revise)
+            ic.refresh_state(step, revise)
             if not has_actions and len(ic.actions):
                 has_actions = True
 
@@ -166,8 +182,8 @@ class ImageConfigManager():
 
 class ImageConfig():
 
-    def __init__(self, image_key, obj={}):
-        self.image_key = str(image_key)
+    def __init__(self, config_key, obj={}):
+        self.config_key = str(config_key)
         tags = obj.pop('tags', None)
         self.__dict__ |= self._deep_dict(obj)
         # ensure tag values are str() when loading
@@ -176,15 +192,19 @@ class ImageConfig():
 
     @property
     def local_dir(self):
-        return os.path.join('work/images', self.name)
+        return Path('work/images') / self.cloud / self.image_key
 
     @property
     def local_path(self):
-        return os.path.join(self.local_dir, 'image.' + self.local_format)
+        return self.local_dir / ('image.' + self.local_format)
+
+    @property
+    def published_yaml(self):
+        return self.local_dir / 'published.yaml'
 
     @property
     def image_name(self):
-        return '-r'.join([self.name, str(self.revision)])
+        return self.name.format(**self.__dict__)
 
     @property
     def image_description(self):
@@ -196,19 +216,20 @@ class ImageConfig():
         t = {
             'arch': self.arch,
             'bootstrap': self.bootstrap,
-            'build_name': self.name,
-            'build_revision': self.revision,
             'cloud': self.cloud,
             'description': self.image_description,
             'end_of_life': self.end_of_life,
             'firmware': self.firmware,
+            'image_key': self.image_key,
             'name': self.image_name,
+            'project': self.project,
             'release': self.release,
+            'revision': self.revision,
             'version': self.version
         }
         # stuff that might not be there yet
-        for k in ['imported', 'published', 'source_id', 'source_region']:
-            if k in self.__dict__:
+        for k in ['imported', 'import_id', 'import_region', 'published']:
+            if self.__dict__.get(k, None):
                 t[k] = self.__dict__[k]
         return Tags(t)
 
@@ -246,12 +267,33 @@ class ImageConfig():
         # stringify arrays
         self.name = '-'.join(self.name)
         self.description = ' '.join(self.description)
+        self._resolve_motd()
         self._stringify_repos()
         self._stringify_packages()
         self._stringify_services()
         self._stringify_dict_keys('kernel_modules', ',')
         self._stringify_dict_keys('kernel_options', ' ')
         self._stringify_dict_keys('initfs_features', ' ')
+
+    def _resolve_motd(self):
+        # merge version/release notes, as apporpriate
+        if self.motd.get('version_notes', None) and self.motd.get('release_notes', None):
+            if self.version == 'edge':
+                # edge is, by definition, not released
+                self.motd.pop('version_notes', None)
+                self.motd.pop('release_notes', None)
+
+            elif self.release == self.version + '.0':
+                # no point in showing the same URL twice
+                self.motd.pop('release_notes')
+
+            else:
+                # combine version and release notes
+                self.motd['release_notes'] = self.motd.pop('version_notes') + '\n' + \
+                    self.motd['release_notes']
+
+        # TODO: be rid of null values
+        self.motd = '\n\n'.join(self.motd.values()).format(**self.__dict__)
 
     def _stringify_repos(self):
         # stringify repos map
@@ -323,13 +365,11 @@ class ImageConfig():
             for m, v in self.__dict__[d].items()
         )))
 
-    # TODO? determine_current_state()
-    def determine_actions(self, step, revise):
+    def refresh_state(self, step, revise=False):
         log = logging.getLogger('build')
-        self.revision = 0
-        # TODO: be more specific about our parameters
-        self.remote_image = clouds.latest_build_image(self)
         actions = {}
+        revision = 0
+        remote_image = clouds.latest_build_image(self)
 
         # enable actions based on the specified step
         if step in ['local', 'import', 'publish']:
@@ -343,50 +383,83 @@ class ImageConfig():
             actions['publish'] = True
 
         if revise:
-            if os.path.exists(self.local_path):
+            if self.local_path.exists():
                 # remove previously built local image artifacts
                 log.warning('Removing existing local image dir %s', self.local_dir)
                 shutil.rmtree(self.local_dir)
 
-            if self.remote_image and 'published' in self.remote_image['tags']:
-                log.warning('Bumping build revision for %s', self.name)
-                self.revision = int(self.remote_image['tags']['build_revision']) + 1
+            if remote_image and remote_image.published:
+                log.warning('Bumping image revision for %s', self.image_key)
+                revision = int(remote_image.revision) + 1
 
-            elif self.remote_image and 'imported' in self.remote_image['tags']:
+            elif remote_image and remote_image.imported:
                 # remove existing imported (but unpublished) image
-                log.warning('Removing unpublished remote image %s', self.remote_image['id'])
-                # TODO: be more specific?
-                clouds.remove_image(self)
+                log.warning('Removing unpublished remote image %s', remote_image.import_id)
+                clouds.remove_image(self, remote_image.import_id)
 
-            self.remote_image = None
+            remote_image = None
 
-        elif self.remote_image and 'imported' in self.remote_image['tags']:
-            # already imported, don't build/import again
-            log.warning('Already imported, skipping build/import')
-            actions.pop('build', None)
-            actions.pop('import', None)
+        elif remote_image:
+            if remote_image.imported:
+                # already imported, don't build/import again
+                log.info('%s - already imported', self.image_key)
+                actions.pop('build', None)
+                actions.pop('import', None)
 
-        if os.path.exists(self.local_path):
-            log.warning('Already built, skipping build')
+            if remote_image.published:
+                # NOTE: re-publishing can update perms or push to new regions
+                log.info('%s - already published', self.image_key)
+
+        if self.local_path.exists():
             # local image's already built, don't rebuild
+            log.info('%s - already locally built', self.image_key)
             actions.pop('build', None)
 
-        # set at time of import, carries forward when published
-        if self.remote_image:
-            self.end_of_life = self.remote_image['tags']['end_of_life']
-            self.revision = self.remote_image['tags']['build_revision']
+        # merge remote_image data into image state
+        if remote_image:
+            self.__dict__ |= dict(remote_image)
 
         else:
-            # default to tomorrow's date if unset
-            if 'end_of_life' not in self.__dict__:
-                tomorrow = datetime.utcnow() + timedelta(days=1)
-                self.end_of_life = tomorrow.strftime('%F')
+            self.__dict__ |= {
+                'revision': revision,
+                'imported': None,
+                'import_id': None,
+                'import_region': None,
+                'published': None,
+            }
+            self.end_of_life = self.__dict__.pop(
+                'end_of_life',
+                # EOL is tomorrow, if otherwise unset
+                (datetime.utcnow() + timedelta(days=1)).strftime('%F')
+            )
+
+        # update artifacts, if we've got 'em
+        artifacts_yaml = self.local_dir / 'artifacts.yaml'
+        if artifacts_yaml.exists():
+            yaml = YAML()
+            self.artifacts = yaml.load(artifacts_yaml)
+        else:
+            self.artifacts = None
 
         self.actions = list(actions)
-        log.info('%s/%s-r%s = %s', self.cloud, self.name, self.revision, self.actions)
+        log.info('%s/%s = %s', self.cloud, self.image_name, self.actions)
+
+        self.state_updated = datetime.utcnow().isoformat()
 
 
-class Tags(dict):
+class DictObj(dict):
+
+    def __getattr__(self, key):
+        return self[key]
+
+    def __setattr__(self, key, value):
+        self[key] = value
+
+    def __delattr__(self, key):
+        del self[key]
+
+
+class Tags(DictObj):
 
     def __init__(self, d={}, from_list=None, key_name='Key', value_name='Value'):
         for key, value in d.items():
@@ -395,22 +468,8 @@ class Tags(dict):
         if from_list:
             self.from_list(from_list, key_name, value_name)
 
-    def __getattr__(self, key):
-        return self[key]
-
     def __setattr__(self, key, value):
         self[key] = str(value)
-
-    def __delattr__(self, key):
-        del self[key]
-
-    def pop(self, key, default):
-        value = default
-        if key in self:
-            value = self[key]
-            del self[key]
-
-        return value
 
     def as_list(self, key_name='Key', value_name='Value'):
         return [{key_name: k, value_name: v} for k, v in self.items()]

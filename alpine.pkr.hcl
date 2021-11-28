@@ -28,15 +28,9 @@ locals {
   # randomly generated password
   password = uuidv4()
 
-  # all build configs
-  all_configs = yamldecode(file("work/configs.yaml"))
-
-  # load the build actions to be taken
-  actions = yamldecode(file("work/actions.yaml"))
-
   # resolve actionable build configs
-  configs = { for b, acfg in local.actions:
-    b => merge(local.all_configs[b], acfg) if length(acfg.actions) > 0
+  configs = { for b, cfg in yamldecode(file("work/images.yaml")):
+    b => cfg if contains(keys(cfg), "actions")
   }
 }
 
@@ -99,10 +93,10 @@ build {
       boot_wait     = var.qemu.boot_wait[B.value.arch]
 
       # results
-      output_directory  = B.value.image.dir
-      disk_size         = B.value.image.size
-      format            = B.value.image.format
-      vm_name           = B.value.image.file
+      output_directory  = "work/images/${B.value.cloud}/${B.value.image_key}"
+      disk_size         = B.value.size
+      format            = B.value.local_format
+      vm_name           = "image.${B.value.local_format}"
     }
   }
 
@@ -150,16 +144,18 @@ build {
       environment_vars = [
         "DEBUG=${var.DEBUG}",
         "ARCH=${B.value.arch}",
+        "BOOTLOADER=${B.value.bootloader}",
         "BOOTSTRAP=${B.value.bootstrap}",
         "BUILD_NAME=${B.value.name}",
         "BUILD_REVISION=${B.value.revision}",
         "CLOUD=${B.value.cloud}",
         "END_OF_LIFE=${B.value.end_of_life}",
         "FIRMWARE=${B.value.firmware}",
-        "IMAGE_LOGIN=${B.value.image.login}",
+        "IMAGE_LOGIN=${B.value.login}",
         "INITFS_FEATURES=${B.value.initfs_features}",
         "KERNEL_MODULES=${B.value.kernel_modules}",
         "KERNEL_OPTIONS=${B.value.kernel_options}",
+        "MOTD=${B.value.motd}",
         "PACKAGES_ADD=${B.value.packages.add}",
         "PACKAGES_DEL=${B.value.packages.del}",
         "PACKAGES_NOSCRIPTS=${B.value.packages.noscripts}",

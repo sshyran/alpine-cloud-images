@@ -7,9 +7,11 @@ import sys
 import textwrap
 
 NOTE = textwrap.dedent("""
-    This script is meant to be run as a Packer post-processor, and Packer is only
-    meant to be executed from the main 'build' script, which is responsible for
-    setting up the work environment.
+    This script's output is meant to be compatible with alpine-ec2-ami's
+    releases.yaml, in order to bridge the gap until https://alpinelinux.org/cloud
+    can be updated to be generated from another source, or dynamically calls an
+    published image metadata service.  This script should only be run after
+    the main 'build' script has been used successfully to publish all images.
     """)
 
 sys.pycache_prefix = 'work/__pycache__'
@@ -29,7 +31,8 @@ if os.path.join(os.getcwd(), venv_args[0]) != sys.executable:
 
 import argparse
 import logging
-from pathlib import Path
+
+from collections import defaultdict
 from ruamel.yaml import YAML
 
 import clouds
@@ -38,50 +41,60 @@ from image_configs import ImageConfigManager
 
 ### Constants & Variables
 
-ACTIONS = ['import', 'publish']
 LOGFORMAT = '%(name)s - %(levelname)s - %(message)s'
+
+
+### Functions
+
+# allows us to set values deep within an object that might not be fully defined
+def dictfactory():
+    return defaultdict(dictfactory)
+
+
+# undo dictfactory() objects to normal objects
+def undictfactory(o):
+    if isinstance(o, defaultdict):
+        o = {k: undictfactory(v) for k, v in o.items()}
+    return o
 
 
 ### Command Line & Logging
 
 parser = argparse.ArgumentParser(description=NOTE)
-parser.add_argument('--debug', action='store_true', help='enable debug output')
 parser.add_argument(
     '--use-broker', action='store_true',
     help='use the identity broker to get credentials')
-parser.add_argument('action', choices=ACTIONS)
-parser.add_argument('image_keys', metavar='IMAGE_KEY', nargs='+')
+parser.add_argument('--debug', action='store_true', help='enable debug output')
 args = parser.parse_args()
 
-log = logging.getLogger(args.action)
+log = logging.getLogger('gen_releases')
 log.setLevel(logging.DEBUG if args.debug else logging.INFO)
-# log to STDOUT so that it's not all red when executed by packer
-console = logging.StreamHandler(sys.stdout)
+console = logging.StreamHandler(sys.stderr)
 console.setFormatter(logging.Formatter(LOGFORMAT))
 log.addHandler(console)
 log.debug(args)
 
 # set up credential provider, if we're going to use it
 if args.use_broker:
-    clouds.set_credential_provider(debug=args.debug)
+    clouds.set_credential_provider()
 
 # load build configs
 configs = ImageConfigManager(
     conf_path='work/configs/images.conf',
     yaml_path='work/images.yaml',
-    log=args.action
+    log='gen_releases'
 )
+# make sure images.yaml is up-to-date with reality
+configs.refresh_state('final')
 
 yaml = YAML()
-yaml.explicit_start = True
 
-for image_key in args.image_keys:
-    image_config = configs.get(image_key)
+releases = dictfactory()
+for i_key, i_cfg in configs.get().items():
+    release = i_cfg.version if i_cfg.version == 'edge' else i_cfg.release
+    releases[release][i_key][i_cfg.tags.name] = dict(i_cfg.tags) | {
+        'creation_date': i_cfg.published,
+        'artifacts': i_cfg.artifacts,
+    }
 
-    if args.action == 'import':
-        clouds.import_image(image_config)
-
-    elif args.action == 'publish':
-        os.makedirs(image_config.local_dir, exist_ok=True)
-        artifacts = clouds.publish_image(image_config)
-        yaml.dump(artifacts, Path(image_config.local_dir) / 'artifacts.yaml')
+yaml.dump(undictfactory(releases), sys.stdout)
