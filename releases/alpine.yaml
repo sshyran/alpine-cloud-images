@@ -1,6 +1,6 @@
 3.15.0:
   3.15-x86_64-bios-tiny-aws:
-    alpine-3.15.0-x86_64-bios-tiny-r0:
+    alpine-3.15.0-x86_64-bios-tiny-r1:
       arch: x86_64
       bootstrap: tiny
       cloud: aws
@@ -8,40 +8,40 @@
       end_of_life: '2023-11-01'
       firmware: bios
       image_key: 3.15.0-x86_64-bios-tiny-aws
-      name: alpine-3.15.0-x86_64-bios-tiny-r0
+      name: alpine-3.15.0-x86_64-bios-tiny-r1
       project: https://alpinelinux.org/cloud
       release: 3.15.0
-      revision: '0'
+      revision: '1'
       version: '3.15'
-      imported: '2021-11-24T17:13:05.688271'
-      import_id: ami-0888066001881089e
+      imported: '2021-11-27T23:13:20.382687'
+      import_id: ami-086358781128f6a7b
       import_region: us-west-2
-      published: '2021-11-24T17:17:33.103711'
-      creation_date: '2021-11-24T17:17:33.103711'
+      published: '2021-11-27T23:21:49.475060'
+      creation_date: '2021-11-27T23:21:49.475060'
       artifacts:
-        af-south-1: ami-0b8c72fa6afc6c4bc
-        eu-north-1: ami-03b8d854057c9279a
-        ap-south-1: ami-0be36fc5e1c7b9531
-        eu-west-3: ami-07990de4ffb2037b3
-        eu-west-2: ami-0d3e9bfe678c66757
-        eu-south-1: ami-09dfab72d54bee282
-        eu-west-1: ami-08f4abd198c1c407e
-        ap-northeast-3: ami-058e5ec5e59eea28a
-        ap-northeast-2: ami-080a3a98d413a2eed
-        me-south-1: ami-0cc9b12afa384aa93
-        ap-northeast-1: ami-0dc4347a3793c61a4
-        sa-east-1: ami-06bd0957ab7efe107
-        ca-central-1: ami-020cc684a770ea3e4
-        ap-east-1: ami-02cb2efac688aa9fb
-        ap-southeast-1: ami-0506b03afd32bb324
-        ap-southeast-2: ami-0a6f962f794f780d2
-        eu-central-1: ami-0e1f9347e112487d1
-        us-east-1: ami-07521aebcf46859ee
-        us-east-2: ami-091d4fc21e34d615e
-        us-west-1: ami-0e01e31d64a75ecc0
-        us-west-2: ami-0888066001881089e
+        us-west-2: ami-086358781128f6a7b
+        af-south-1: ami-045ecf489cd4fc54d
+        eu-north-1: ami-0052edb5b1667f4d0
+        ap-south-1: ami-0216e3d3d115c589c
+        eu-west-3: ami-0e76ac4792e2600a8
+        eu-west-2: ami-0634cfdf7637337a9
+        eu-south-1: ami-077cc8ee15d0f8c08
+        eu-west-1: ami-03d75fd355e5172dd
+        ap-northeast-3: ami-0f78f514705efc106
+        ap-northeast-2: ami-090077689b02ffd69
+        me-south-1: ami-0fba335a3cbf55e7d
+        ap-northeast-1: ami-0a619118d7028e034
+        sa-east-1: ami-062a8a6bef9f5df0e
+        ca-central-1: ami-01d4a5c58a76bf78c
+        ap-east-1: ami-07723bffc6c955474
+        ap-southeast-1: ami-01756fc978efef70e
+        ap-southeast-2: ami-0ac6baf5e47d93b0f
+        eu-central-1: ami-0e7768be3c36b1c32
+        us-east-1: ami-0a4f0a364c78e6b72
+        us-east-2: ami-01a9e407d39fc6bd6
+        us-west-1: ami-09b4c9ae42bab9d06
   3.15-aarch64-uefi-tiny-aws:
-    alpine-3.15.0-aarch64-uefi-tiny-r0:
+    alpine-3.15.0-aarch64-uefi-tiny-r1:
       arch: aarch64
       bootstrap: tiny
       cloud: aws
@@ -49,38 +49,38 @@
       end_of_life: '2023-11-01'
       firmware: uefi
       image_key: 3.15.0-aarch64-uefi-tiny-aws
-      name: alpine-3.15.0-aarch64-uefi-tiny-r0
+      name: alpine-3.15.0-aarch64-uefi-tiny-r1
       project: https://alpinelinux.org/cloud
       release: 3.15.0
-      revision: '0'
+      revision: '1'
       version: '3.15'
-      imported: '2021-11-24T17:13:24.838792'
-      import_id: ami-0e9498f2ed7597799
+      imported: '2021-11-27T23:08:26.903315'
+      import_id: ami-04e86cc583f70f2f2
       import_region: us-west-2
-      published: '2021-11-24T17:17:32.721027'
-      creation_date: '2021-11-24T17:17:32.721027'
+      published: '2021-11-27T23:21:50.916425'
+      creation_date: '2021-11-27T23:21:50.916425'
       artifacts:
-        af-south-1: ami-0d0f68dd63f9d7759
-        eu-north-1: ami-0f9a81e7acab80b19
-        ap-south-1: ami-02ca2890f367aef54
-        eu-west-3: ami-0089b7c2711108741
-        eu-west-2: ami-0de14a5833f6bbb2a
-        eu-south-1: ami-0e812b1322328a42e
-        eu-west-1: ami-07f3e47d07f544833
-        ap-northeast-3: ami-09ee84582dee12e8a
-        ap-northeast-2: ami-0ecc364ba85375b3f
-        me-south-1: ami-0c4ff26ac41bf8868
-        ap-northeast-1: ami-0974912f4734c5c42
-        sa-east-1: ami-0b6b8b7bc6a7ab43f
-        ca-central-1: ami-0821503212f70cece
-        ap-east-1: ami-0581dc54925495c41
-        ap-southeast-1: ami-0f102a6b1f6f9321d
-        ap-southeast-2: ami-09e273aa33a8b7fd7
-        eu-central-1: ami-02cf44d515d0ca30e
-        us-east-1: ami-04c42a60bd022b777
-        us-east-2: ami-0f28870083ff305a6
-        us-west-1: ami-03ca4b61552f2e047
-        us-west-2: ami-0e9498f2ed7597799
+        us-west-2: ami-04e86cc583f70f2f2
+        af-south-1: ami-0667f8f5317f5cbab
+        eu-north-1: ami-0ff108a7845fde427
+        ap-south-1: ami-0fcf8ada1c6e3cd87
+        eu-west-3: ami-0bd96b91a260d24b9
+        eu-west-2: ami-0fb9410265b40a9e5
+        eu-south-1: ami-09e5ea908f180968b
+        eu-west-1: ami-0bcf12e5ba2db6947
+        ap-northeast-3: ami-0ff812a764c45d09b
+        ap-northeast-2: ami-0713529d2a8193b1d
+        me-south-1: ami-07f3e67a7553a3a03
+        ap-northeast-1: ami-0c1c6316cdb61932b
+        sa-east-1: ami-0ae5a88259d36095d
+        ca-central-1: ami-0901e5f11973990ca
+        ap-east-1: ami-00571a8e28d19b410
+        ap-southeast-1: ami-08a1b88635ef58ece
+        ap-southeast-2: ami-04023098ed5b1175b
+        eu-central-1: ami-0099ee3aff7527e24
+        us-east-1: ami-00247f523b2c755ea
+        us-east-2: ami-0284edfe805021140
+        us-west-1: ami-0560d4bf0e8171d01
 3.14.3:
   3.14-x86_64-bios-tiny-aws:
     alpine-3.14.3-x86_64-bios-tiny-r0:
@@ -332,84 +332,84 @@
         us-west-2: ami-078d9c708d6e23fbc
 edge:
   edge-x86_64-bios-tiny-aws:
-    alpine-20211124-x86_64-bios-tiny-r0:
+    alpine-20211127-x86_64-bios-tiny-r0:
       arch: x86_64
       bootstrap: tiny
       cloud: aws
-      description: Alpine Linux 20211124 - https://alpine.linux.org/cloud
-      end_of_life: '2021-11-25'
+      description: Alpine Linux 20211127 - https://alpine.linux.org/cloud
+      end_of_life: '2021-11-28'
       firmware: bios
-      image_key: 20211124-x86_64-bios-tiny-aws
-      name: alpine-20211124-x86_64-bios-tiny-r0
+      image_key: 20211127-x86_64-bios-tiny-aws
+      name: alpine-20211127-x86_64-bios-tiny-r0
       project: https://alpinelinux.org/cloud
-      release: '20211124'
+      release: '20211127'
       revision: '0'
       version: edge
-      imported: '2021-11-24T17:13:29.762767'
-      import_id: ami-0777a41574a8b93bc
+      imported: '2021-11-27T23:25:45.640952'
+      import_id: ami-0529a9d019b9d3196
       import_region: us-west-2
-      published: '2021-11-24T17:17:32.865193'
-      creation_date: '2021-11-24T17:17:32.865193'
+      published: '2021-11-27T23:27:23.582775'
+      creation_date: '2021-11-27T23:27:23.582775'
       artifacts:
-        af-south-1: ami-0a630d6435865d6dc
-        eu-north-1: ami-0a2139a79fa9a1c41
-        ap-south-1: ami-045d88454495b6cbb
-        eu-west-3: ami-0750bd17576afbf74
-        eu-west-2: ami-02ac5cd4801c3a9bc
-        eu-south-1: ami-05e7882c81f9e83b3
-        eu-west-1: ami-01d24b1b189bd4c82
-        ap-northeast-3: ami-0f53cf4e1df144711
-        ap-northeast-2: ami-069eee513342d4232
-        me-south-1: ami-0147ed84923fd5e20
-        ap-northeast-1: ami-0c3ef6f47863c8d96
-        sa-east-1: ami-0461d7a249c0af624
-        ca-central-1: ami-042ca87fbdb7d6d7d
-        ap-east-1: ami-0416bbab02442a9fa
-        ap-southeast-1: ami-0c5b640673af7a861
-        ap-southeast-2: ami-004f4371db895ede1
-        eu-central-1: ami-0a2fe878c7f863b70
-        us-east-1: ami-0084d6ba3cd978d7b
-        us-east-2: ami-00b12ba2e1c2ef978
-        us-west-1: ami-0bbfbfcf1a6d383b7
-        us-west-2: ami-0777a41574a8b93bc
+        af-south-1: ami-02a0d3362e46f249f
+        eu-north-1: ami-0eafcbdea278fdff3
+        ap-south-1: ami-0fb654cd1dc9a98a4
+        eu-west-3: ami-0c689a0a77b96c271
+        eu-west-2: ami-01b7e9d9b403d1bfb
+        eu-south-1: ami-033a65c3cda59b8ca
+        eu-west-1: ami-0eb2e0e47e2e302b4
+        ap-northeast-3: ami-0ac2957630be54036
+        ap-northeast-2: ami-0c1f431afbe7208cc
+        me-south-1: ami-0cae8adfefd7b4909
+        ap-northeast-1: ami-07cb4bd4550107d03
+        sa-east-1: ami-0eecb7d3ed8cda846
+        ca-central-1: ami-026b91b1da93d3305
+        ap-east-1: ami-0a4e68b0842c70d78
+        ap-southeast-1: ami-032f4a9536a8b3862
+        ap-southeast-2: ami-0df8f3bc58102c2be
+        eu-central-1: ami-02e522b4615c40829
+        us-east-1: ami-0afbdec8e0aeee6f1
+        us-east-2: ami-06443e55a7e8fa9a0
+        us-west-1: ami-0495a6e818452205e
+        us-west-2: ami-0529a9d019b9d3196
   edge-aarch64-uefi-tiny-aws:
-    alpine-20211124-aarch64-uefi-tiny-r0:
+    alpine-20211127-aarch64-uefi-tiny-r0:
       arch: aarch64
       bootstrap: tiny
       cloud: aws
-      description: Alpine Linux 20211124 - https://alpine.linux.org/cloud
-      end_of_life: '2021-11-25'
+      description: Alpine Linux 20211127 - https://alpine.linux.org/cloud
+      end_of_life: '2021-11-28'
       firmware: uefi
-      image_key: 20211124-aarch64-uefi-tiny-aws
-      name: alpine-20211124-aarch64-uefi-tiny-r0
+      image_key: 20211127-aarch64-uefi-tiny-aws
+      name: alpine-20211127-aarch64-uefi-tiny-r0
       project: https://alpinelinux.org/cloud
-      release: '20211124'
+      release: '20211127'
       revision: '0'
       version: edge
-      imported: '2021-11-24T17:13:29.356205'
-      import_id: ami-0d8a510376c70ae8e
+      imported: '2021-11-27T23:25:47.216155'
+      import_id: ami-03570f4624daaa835
       import_region: us-west-2
-      published: '2021-11-24T17:17:33.234925'
-      creation_date: '2021-11-24T17:17:33.234925'
+      published: '2021-11-27T23:27:23.011545'
+      creation_date: '2021-11-27T23:27:23.011545'
       artifacts:
-        af-south-1: ami-03ddddd6fbf51a3d8
-        eu-north-1: ami-03dadd31f8fea0c57
-        ap-south-1: ami-057f284c89d1c5c3e
-        eu-west-3: ami-043158fbb6d602240
-        eu-west-2: ami-09aba5017ddaf9fbd
-        eu-south-1: ami-08b788dae57be3b1e
-        eu-west-1: ami-0d0db14d0a4154e03
-        ap-northeast-3: ami-04ce30c78be80f8a6
-        ap-northeast-2: ami-00806253628921d88
-        me-south-1: ami-0e0085f1ef965fd16
-        ap-northeast-1: ami-04d85ed7377c3d024
-        sa-east-1: ami-0f6a79ba1f3609ce9
-        ca-central-1: ami-0133161e1a11f7d06
-        ap-east-1: ami-0b6d0d3bfa4c506f1
-        ap-southeast-1: ami-0a1fe98d35dbf5105
-        ap-southeast-2: ami-03d11d769ea548835
-        eu-central-1: ami-06aa3b0ea07331dd1
-        us-east-1: ami-0c600f00d51017308
-        us-east-2: ami-0d0edbac67dd85ab8
-        us-west-1: ami-08c1c3e91ab110653
-        us-west-2: ami-0d8a510376c70ae8e
+        af-south-1: ami-0f1698ad2018489a7
+        eu-north-1: ami-0331da4f7055bbdef
+        ap-south-1: ami-007cb8219da17cda7
+        eu-west-3: ami-0f2cecd34001d63c0
+        eu-west-2: ami-025b360ef66d1699a
+        eu-south-1: ami-0d53ca8c3881055ad
+        eu-west-1: ami-0c6cb995cbf3c68c5
+        ap-northeast-3: ami-04cfaa7f2a21ec23f
+        ap-northeast-2: ami-0ba98a7a4888c5d23
+        me-south-1: ami-02a79ad3530d11ae1
+        ap-northeast-1: ami-050b616a5e9217b27
+        sa-east-1: ami-0ebcf548f07cd3de8
+        ca-central-1: ami-00994d49e4f0e1bd8
+        ap-east-1: ami-08e3ffd039e7b6c25
+        ap-southeast-1: ami-097b901df3145cad3
+        ap-southeast-2: ami-05bab792eda695929
+        eu-central-1: ami-0440dc7700fc73459
+        us-east-1: ami-057adbe5d5cd37669
+        us-east-2: ami-0d45c20474799e130
+        us-west-1: ami-01986e7a09364380f
+        us-west-2: ami-03570f4624daaa835
