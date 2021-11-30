@@ -40,8 +40,8 @@ import time
 from subprocess import Popen, PIPE
 from urllib.request import urlopen
 
-import alpine
 import clouds
+from alpine import Alpine
 from image_configs import ImageConfigManager
 
 
@@ -55,8 +55,7 @@ OVMF_FIRMWARE = {
     'aarch64': 'usr/share/OVMF/QEMU_EFI.fd',
     'x86_64': 'usr/share/OVMF/OVMF.fd'
 }
-ISO_URL_FORMAT = f"{alpine.CDN_URL}/" \
-    'v{version}/releases/{{arch}}/alpine-virt-{release}-{{arch}}.iso'
+alpine = Alpine()
 
 
 ### Functions
@@ -162,8 +161,8 @@ def install_qemu_firmware():
 
     os.makedirs(firm_dir)
     for arch, bin in OVMF_FIRMWARE.items():
-        v = alpine.get_apk_version('latest-stable', 'community', arch, 'ovmf')
-        ovmf_url = f"{alpine.CDN_URL}/latest-stable/community/{arch}/ovmf-{v}.apk"
+        v = alpine.apk_version('community', arch, 'ovmf')
+        ovmf_url = f"{alpine.repo_url('community', arch)}/ovmf-{v}.apk"
         data = urlopen(ovmf_url).read()
 
         # Python tarfile library can't extract from APKs
@@ -235,7 +234,7 @@ if args.use_broker:
 
 ### Setup Configs
 
-latest = alpine.get_version_release('latest-stable')
+latest = alpine.version_info()
 log.info('Latest Alpine version %s and release %s', latest['version'], latest['release'])
 
 if args.clean:
@@ -248,7 +247,7 @@ image_configs = ImageConfigManager(
     conf_path='work/configs/images.conf',
     yaml_path='work/images.yaml',
     log='build',
-    iso_url_format=ISO_URL_FORMAT.format(**latest)
+    alpine=alpine,
 )
 
 log.info('Configuration Complete')
