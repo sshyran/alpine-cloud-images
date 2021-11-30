@@ -16,7 +16,6 @@ from image_configs import Tags, DictObj
 class AWSCloudAdapter(CloudAdapterInterface):
     IMAGE_INFO = [
         'revision', 'imported', 'import_id', 'import_region', 'published',
-        'end_of_life',
     ]
     CRED_MAP = {
         'access_key': 'aws_access_key_id',
@@ -268,7 +267,9 @@ class AWSCloudAdapter(CloudAdapterInterface):
         source_region = source_image.import_region
         log.info('Publishing source: %s/%s', source_region, source_id)
         source = self.session().resource('ec2').Image(source_id)
-        source_tags = Tags(from_list=source.tags)
+
+        # we may be updating tags, get them from image config
+        tags = ic.tags
 
         # sort out published image access permissions
         perms = {'groups': [], 'users': []}
@@ -334,14 +335,10 @@ class AWSCloudAdapter(CloudAdapterInterface):
                     if image.state == 'available':
                         # tag image
                         log.info('%s: Adding tags to %s', r, image.id)
-                        tags = Tags(from_list=image.tags)
+                        image_tags = Tags(from_list=image.tags)
                         fresh = False
-                        if 'published' not in tags:
+                        if 'published' not in image_tags:
                             fresh = True
-
-                        if not tags:
-                            # fallback to source image's tags
-                            tags = Tags(source_tags)
 
                         if fresh:
                             tags.published = datetime.utcnow().isoformat()
@@ -352,7 +349,13 @@ class AWSCloudAdapter(CloudAdapterInterface):
                         snapshot = self.session(r).resource('ec2').Snapshot(
                             image.block_device_mappings[0]['Ebs']['SnapshotId']
                         )
-                        snapshot.create_tags(Tags=image.tags)
+                        snapshot.create_tags(Tags=tags.as_list())
+
+                        # update image description to match description in tags
+                        log.info('%s: Updating description to %s', r, tags.description)
+                        image.modify_attribute(
+                            Description={'Value': tags.description},
+                        )
 
                         # apply launch perms
                         log.info('%s: Applying launch perms to %s', r, image.id)
@@ -369,7 +372,7 @@ class AWSCloudAdapter(CloudAdapterInterface):
                         log.info('%s: Setting EOL deprecation time on %s', r, image.id)
                         ec2c.enable_image_deprecation(
                             ImageId=image.id,
-                            DeprecateAt=f"{source_image.end_of_life}T23:59:59Z"
+                            DeprecateAt=f"{tags.end_of_life}T23:59:59Z"
                         )
 
                         artifacts[r] = image.id

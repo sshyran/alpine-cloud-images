@@ -7,24 +7,22 @@ import pyhocon
 import shutil
 
 from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from ruamel.yaml import YAML
 
-from alpine import get_version_release
 import clouds
 
 
 class ImageConfigManager():
 
-    def __init__(self, conf_path, yaml_path, log=__name__, iso_url_format=None):
+    def __init__(self, conf_path, yaml_path, log=__name__, alpine=None):
         self.conf_path = Path(conf_path)
         self.yaml_path = Path(yaml_path)
         self.log = logging.getLogger(log)
-        self.iso_url_format = iso_url_format
+        self.alpine = alpine
 
         self.now = datetime.utcnow()
-        self.tomorrow = self.now + timedelta(days=1)
         self._configs = {}
 
         self.yaml = YAML()
@@ -134,7 +132,7 @@ class ImageConfigManager():
 
             # clean stuff up
             image_config._normalize()
-            image_config.qemu['iso_url'] = self.iso_url_format.format(arch=image_config.arch)
+            image_config.qemu['iso_url'] = self.alpine.virt_iso_url(arch=image_config.arch)
 
             # we've resolved everything, add tags attribute to config
             self._configs[config_key] = image_config
@@ -143,11 +141,9 @@ class ImageConfigManager():
 
     # set current version release
     def _set_version_release(self, v, c):
-        if v == 'edge':
-            c.put('release', self.now.strftime('%Y%m%d'))
-            c.put('end_of_life', self.tomorrow.strftime('%F'))
-        else:
-            c.put('release', get_version_release(f"v{v}")['release'])
+        info = self.alpine.version_info(v)
+        c.put('release', info['release'])
+        c.put('end_of_life', info['end_of_life'])
 
         # release is also appended to name & description arrays
         c.put('name', [c.release])
@@ -427,11 +423,6 @@ class ImageConfig():
                 'import_region': None,
                 'published': None,
             }
-            self.end_of_life = self.__dict__.pop(
-                'end_of_life',
-                # EOL is tomorrow, if otherwise unset
-                (datetime.utcnow() + timedelta(days=1)).strftime('%F')
-            )
 
         # update artifacts, if we've got 'em
         artifacts_yaml = self.local_dir / 'artifacts.yaml'
