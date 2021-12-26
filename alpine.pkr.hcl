@@ -1,13 +1,19 @@
-# Enable script debug output, set via 'packer build -var DEBUG=1'
+# Alpine Cloud Images Packer Configuration
+
+### Variables
+
+# include debug output from provisioning/post-processing scripts
 variable "DEBUG" {
   default = 0
 }
+# indicates cloud_helper.py should be run with --use-broker
 variable "USE_BROKER" {
   default = 0
 }
 
-# Tuneable based on perfomance of whatever Packer's running on,
-# override with './build --vars <pkrvars-file>'
+# tuneable QEMU VM parameters, based on perfomance of the local machine;
+# overrideable via build script --vars parameter referencing a Packer
+# ".vars.hcl" file containing alternate settings
 variable "qemu" {
   default = {
     boot_wait = {
@@ -20,6 +26,7 @@ variable "qemu" {
   }
 }
 
+### Local Data
 
 locals {
   debug_arg   = var.DEBUG == 0 ? "" : "--debug"

@@ -37,6 +37,7 @@ import logging
 import shutil
 import time
 
+from glob import glob
 from subprocess import Popen, PIPE
 from urllib.request import urlopen
 
@@ -47,7 +48,7 @@ from image_configs import ImageConfigManager
 
 ### Constants & Variables
 
-STEPS = ['configs', 'actions', 'local', 'import', 'publish']
+STEPS = ['configs', 'state', 'local', 'import', 'publish']
 LOGFORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 WORK_CLEAN = {'bin', 'include', 'lib', 'pyvenv.cfg', '__pycache__'}
 WORK_OVERLAYS = ['configs', 'scripts']
@@ -100,46 +101,54 @@ def clean_work():
             os.unlink(x)
 
 
-def is_same_dir_symlink(x):
-    if not os.path.islink(x):
+def is_images_conf(o, x):
+    if not all([
+        o == 'configs',
+        x.endswith('/images.conf'),
+        os.path.islink(x),
+    ]):
         return False
 
+    # must also link to file in the same directory
     x_link = os.path.normpath(os.readlink(x))
     return x_link == os.path.basename(x_link)
 
 
-# TODO: revisit this to improve --custom overlay implementation
 def install_overlay(overlay):
     log.info("Installing '%s' overlay in work environment", overlay)
     dest_dir = os.path.join('work', overlay)
     os.makedirs(dest_dir, exist_ok=True)
     for src in unique_list(['.'] + args.custom):
         src_dir = os.path.join(src, overlay)
-        for x in os.listdir(src_dir):
+        for x in glob(os.path.join(src_dir, '**'), recursive=True):
+            x = x.removeprefix(src_dir + '/')
             src_x = os.path.join(src_dir, x)
             dest_x = os.path.join(dest_dir, x)
-            if is_same_dir_symlink(src_x):
-                rel_x = os.readlink(src_x)
-            else:
-                rel_x = os.path.relpath(src_x, dest_dir)
 
-            # TODO: only images.conf symlink can be overridden, in reality
-            if os.path.islink(dest_x):
-                # only same-dir symlinks can be overridden
-                if not is_same_dir_symlink(dest_x):
-                    log.warning("Can't override %s with %s", dest_x, src_x)
+            if is_images_conf(overlay, src_x):
+                rel_x = os.readlink(src_x)
+                if os.path.islink(dest_x):
+                    print(f"\toverriding {dest_x}")
+                    os.unlink(dest_x)
+
+                print(f"\tln -s {rel_x} {dest_x}")
+                os.symlink(rel_x, dest_x)
+                continue
+
+            if os.path.isdir(src_x):
+                if not os.path.exists(dest_x):
+                    log.debug('makedirs %s', dest_x)
+                    os.makedirs(dest_x)
+
+                if os.path.isdir(dest_x):
                     continue
 
-                log.debug('overriding %s with %s', dest_x, src_x)
-                os.unlink(dest_x)
-
-            elif os.path.exists(dest_x):
-                # we expect only symlnks in the overlay destination!
-                log.critical('Config overlay non-symlink detected: %s', dest_x)
+            if os.path.exists(dest_x):
+                log.critical('Unallowable destination overwirte detected: %s', dest_x)
                 sys.exit(1)
 
-            log.debug('ln -sf %s %s', rel_x, dest_x)
-            os.symlink(rel_x, dest_x)
+            log.debug('cp -p %s %s', src_x, dest_x)
+            shutil.copy(src_x, dest_x)
 
 
 def install_overlays():
@@ -188,22 +197,24 @@ parser.add_argument(
     '--debug', action='store_true', help='enable debug output')
 parser.add_argument(
     '--clean', action='store_true', help='start with a clean work environment')
-parser.add_argument(
-    '--revise', action='store_true',
-    help='bump revisions if images already published')
-# positional argument
-parser.add_argument(
-    'step', choices=STEPS, help='build up to and including this step')
 # config options
 parser.add_argument(
     '--custom', metavar='DIR', nargs='+', action=are_args_valid(os.path.isdir),
     default=[], help='overlay custom directory in work environment')
+# state options
 parser.add_argument(
     '--skip', metavar='KEY', nargs='+', action=remove_dupe_args(),
     default=[], help='skip variants with dimension key(s)')
 parser.add_argument(
     '--only', metavar='KEY', nargs='+', action=remove_dupe_args(),
     default=[], help='only variants with dimension key(s)')
+parser.add_argument(
+    '--revise', action='store_true',
+    help='remove existing local/imported image, or bump revision and rebuild'
+        'if published')
+parser.add_argument(
+    '--use-broker', action='store_true',
+    help='use the identity broker to get credentials')
 # packer options
 parser.add_argument(
     '--no-color', action='store_true', help='turn off Packer color output')
@@ -213,10 +224,9 @@ parser.add_argument(
 parser.add_argument(
     '--vars', metavar='FILE', nargs='+', action=are_args_valid(os.path.isfile),
     default=[], help='supply Packer with -vars-file(s)')
+# positional argument
 parser.add_argument(
-    '--use-broker', action='store_true',
-    help='use the identity broker to get credentials')
-# perhaps others?
+    'step', choices=STEPS, help='build up to and including this step')
 args = parser.parse_args()
 
 log = logging.getLogger('build')
@@ -261,7 +271,7 @@ if not image_configs.refresh_state(
     log.info('No pending actions to take at this time.')
     sys.exit(0)
 
-if args.step == 'actions':
+if args.step == 'state':
     sys.exit(0)
 
 # install firmware if missing

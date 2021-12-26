@@ -366,32 +366,41 @@ class ImageConfig():
         actions = {}
         revision = 0
         remote_image = clouds.latest_build_image(self)
+        step_state = step == 'state'
 
         # enable actions based on the specified step
-        if step in ['local', 'import', 'publish']:
+        if step in ['local', 'import', 'publish', 'state']:
             actions['build'] = True
 
-        if step in ['import', 'publish']:
+        if step in ['import', 'publish', 'state']:
             actions['import'] = True
 
-        if step == 'publish':
+        if step in ['publish', 'state']:
             # we will resolve publish destinations (if any) later
             actions['publish'] = True
 
         if revise:
             if self.local_path.exists():
                 # remove previously built local image artifacts
-                log.warning('Removing existing local image dir %s', self.local_dir)
-                shutil.rmtree(self.local_dir)
+                log.warning('%s existing local image dir %s',
+                    'Would remove' if step_state else 'Removing',
+                    self.local_dir)
+                if not step_state:
+                    shutil.rmtree(self.local_dir)
 
             if remote_image and remote_image.published:
-                log.warning('Bumping image revision for %s', self.image_key)
+                log.warning('%s image revision for %s',
+                    'Would bump' if step_state else 'Bumping',
+                    self.image_key)
                 revision = int(remote_image.revision) + 1
 
             elif remote_image and remote_image.imported:
                 # remove existing imported (but unpublished) image
-                log.warning('Removing unpublished remote image %s', remote_image.import_id)
-                clouds.remove_image(self, remote_image.import_id)
+                log.warning('%s unpublished remote image %s',
+                    'Would remove' if step_state else 'Removing',
+                    remote_image.import_id)
+                if not step_state:
+                    clouds.remove_image(self, remote_image.import_id)
 
             remote_image = None
 

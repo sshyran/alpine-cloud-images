@@ -1,11 +1,3 @@
-## _**NOTE: This is a Work-in-Progress**_
-
-_It is intended that this will eventually replace
-https://gitlab.alpinelinux.org/alpine/cloud/alpine-ec2-ami
-as the offical multi-cloud image builder for Alpine Linux._
-
-----
-
 # Alpine Linux Cloud Image Builder
 
 This repository contains the code and and configs for the build system used to
@@ -18,26 +10,64 @@ own customized images.
 
 To get started with offical pre-built Alpine Linux cloud images, visit
 https://alpinelinux.org/cloud.  Currently, we build official images for the
-following providers:
+following cloud platforms...
 * AWS
 
-You should also be able to find the most recently published Alpine Linux
-images via your cloud provider's web console, or programatically query their
-API with a CLI tool or library.
+...we are working on also publishing offical images to other major cloud
+providers.
 
-_(TODO: examples)_
+Each published image's name contains the Alpine version release, architecture, firmware, bootstrap, and image revision.  These details (and more) are also
+tagged on the images...
+
+| Tag | Description / Values |
+|-----|----------------------|
+| name | `alpine-`_`release-arch-firmware-bootstrap-`_`r`_`revision`_ |
+| project | `https://alpinelinux.org/cloud` |
+| image_key | _`release-arch-firmware-bootstrap-cloud`_ |
+| version | Alpine version (_`x.y`_ or `edge`) |
+| release | Alpine release (_`x.y.z`_ or _`YYYYMMDD`_ for edge) |
+| arch | architecture (`aarch64` or `x86_64`) |
+| firmware | boot mode (`bios` or `uefi`) |
+| bootstrap | initial bootstrap system (`tiny` = tiny-ec2-bootstrap) |
+| cloud | provider short name (`aws`) |
+| revision | image revision number |
+| imported | image import timestamp |
+| import_id | imported image id |
+| import_region | imported image region |
+| published | image publication timestamp |
+| description | image description |
+
+Although AWS does not allow cross-account filtering by tags, the image name can
+still be used to filter images.  For example, to get a list of available Alpine
+3.x aarch64 images in AWS eu-west-2...
+```
+aws ec2 describe-images \
+  --region eu-west-2 \
+  --owners 538276064493 \
+  --filters \
+    Name=name,Values='alpine-3.*-aarch64-*' \
+    Name=state,Values=available \
+  --output text \
+  --query 'reverse(sort_by(Images, &CreationDate))[].[ImageId,Name,CreationDate]'
+```
+To get just the most recent matching image, use...
+```
+  --query 'max_by(Image, &CreationDate).[ImageId,Name,CreationDate]'
+```
 
 ----
 ## Build System
 
 The build system consists of a number of components:
 
-* the primary `build` script and related cloud-specific helpers
-* a directory of `configs/` defining the set of images to be built
-* a Packer `alpine.pkr.hcl` orchestrating the images' local build, as well as
-  importing them to cloud providers and publishing them to desitnation regions
-* a directory of `scripts/` which set up the images' contents during
-  provisioning
+* the primary `build` script
+* the `configs/` directory, defining the set of images to be built
+* the `scripts/` directory, containing scripts and related data used to set up
+  image contents during provisioning
+* the Packer `alpine.pkr.hcl`, which orchestrates build, import, and publishing
+  of images
+* the `cloud_helper.py` script that Packer runs in order to do cloud-specific
+  import and publish operations
 
 ### Build Requirements
 * [Python](https://python.org) (3.9.7 is known to work)
@@ -47,182 +77,105 @@ The build system consists of a number of components:
 
 ### Cloud Credentials
 
-This build system relies on the cloud providers' Python API libraries to find
-and use the necessary credentials -- via configuration in the user's home
-directory (i.e. `~/.aws/...`, `~/.oci/...`, etc.) or with special environment
-variables (i.e.  `AWS_...`, `OCI_...`, etc.)
+By default, the build system relies on the cloud providers' Python API
+libraries to find and use the necessary credentials, usually via configuration
+under the user's home directory (i.e. `~/.aws/`, `~/.oci/`, etc.) or or via
+environment variables (i.e. `AWS_...`, `OCI_...`, etc.)
 
-It is expected that each cloud provider's user/role will have been set up with
-sufficient permission in order to accomplish the operations necessary to query,
-import, and publish images; _it is highly recommended that no permissions are
-granted beyond what is absolutely necessary_.
+The credentials' user/role needs sufficient permission to query, import, and
+publish images -- the exact details will vary from cloud to cloud.  _It is
+recommended that only the minimum required permissions are granted._
+
+_We manage the credentials for publishing official Alpine images with an
+"identity broker" service, and retrieve those credentials via the
+`--use-broker` argument of the `build` script._
 
 ### The `build` Script
 
 ```
-usage: build [-h] [--debug] [--clean] [--revise] {configs,local,import,publish}
-         [--custom DIR [DIR ...]] [--skip KEY [KEY ...]] [--only KEY [KEY ...]]
+usage: build [-h] [--debug] [--clean] [--custom DIR [DIR ...]]
+         [--skip KEY [KEY ...]] [--only KEY [KEY ...]] [--revise] [--use-broker]
          [--no-color] [--parallel N] [--vars FILE [FILE ...]]
+         {configs,state,local,import,publish}
 
-build steps:
-  configs                 resolve build configuration
-  local                   build local images
-  import                  import to cloud providers
-  publish                 set permissions and publish to cloud regions
+positional arguments:   (build up to and including this step)
+  configs   resolve image build configuration
+  state     refresh current image build state
+  local     build images locally
+  import    import local images to cloud provider default region
+  publish   set image permissions and publish to cloud regions
 
 optional arguments:
   -h, --help              show this help message and exit
-  --debug                 enable debug output (False)
-  --clean                 start with a clean work environment (False)
-  --revise                bump revisions if images already published (False)
+  --debug                 enable debug output
+  --clean                 start with a clean work environment
   --custom DIR [DIR ...]  overlay custom directory in work environment
   --skip KEY [KEY ...]    skip variants with dimension key(s)
   --only KEY [KEY ...]    only variants with dimension key(s)
-  --no-color              turn off Packer color output (False)
-  --parallel N            build N images in parallel (1)
-  --vars FILE [FILE ...]  supply Packer with additional -vars-file(s)
+  --revise                remove existing local/imported image, or bump
+                          revision and rebuild if published
+  --use-broker            use the identity broker to get credentials
+  --no-color              turn off Packer color output
+  --parallel N            build N images in parallel (default: 1)
+  --vars FILE [FILE ...]  supply Packer with -vars-file(s)
 ```
 
-A `work/` directory will be created for its Python virtual environment, any
-necessary Python libraries will be `pip install`ed, and `build` will execute
-itself to ensure that it's running in the work environment.
+The `build` script will automatically create a `work/` directory containing a
+Python virtual environment if one does not already exist.  This directory also
+hosts other data related to building images.  The `--clean` argument will
+remove everything in the `work/` directory except for things related to the
+Python virtual environment.
 
-This directory also contains `configs/` and `scripts/` subdirs (with custom
-overlays), UEFI firmware for QEMU, Packer cache, the generated `configs.yaml`
-and `actions.yaml` configs, and the `images/` tree for local image builds.
+If `work/configs/` or `work/scripts/` directories do not yet exist, they will
+be populated with the base configuration and scripts from `configs/` and/or
+`scripts/` directories.  If any custom overlay directories are specified with
+the `--custom` argument, their `configs/` and `scripts/` subdirectories are
+also added to `work/configs/` and `work/scripts/`.
 
-Use `--clean` if you want to re-overlay, re-download, re-generate, or rebuild
-anything in the `work/` directory.  To redo the Python virtual environment,
-simply remove the `work/` directory and its contents, and it will be recreated
-the next time `build` is run.
+The "build step" positional argument deterimines the last step the `build`
+script should execute -- all steps before this targeted step may also be
+executed.  That is, `build local` will first execute the `configs` step (if
+necessary) and then the `state` step (always) before proceeding to the `local`
+step.
 
-### Build Steps
+The `configs` step resolves configuration for all buildable images, and writes
+it to `work/images.yaml`, if it does not already exist.
 
-When executing `build` you also provide the target step you wish to reach.  For
-example, if you only want to build local images, use `build local`.  Any
-predecessor steps which haven't been done will also be executed -- that is,
-`build local` also implies `build configs` if that step hasn't completed yet.
+The `state` step always checks the current state of the image builds,
+determines what actions need to be taken, and updates `work/images.yaml`.  A
+subset of image builds can be targeted by using the `--skip` and `--only`
+arguments.  The `--revise` argument indicates that any _unpublished_ local
+or imported images should be removed and rebuilt; as _published_ images can't
+be removed, `--revise` instead increments the _`revision`_ value to rebuild
+new images.
 
-The **configs** step determines the latest stable Alpine Linux release, and
-ensures that the `configs/` and `scripts/` overlays, UEFI firmware, and
-`configs.yaml` exist.  This allows you to validate the generated build variant
-configuration before attempting to build any images locally.
+`local`, `import`, and `publish` steps are orchestrated by Packer.  By default,
+each image will be processed serially; providing the `--parallel` argument with
+a value greater than 1 will parallelize operations.  The degree to which you
+can parallelze `local` image builds will depend on the local build hardware --
+as QEMU virtual machines are launched for each image being built.  Image
+`import` and `publish` steps are much more lightweight, and can support higher parallelism.
 
-If `build` is moving on past **configs** to other steps, it will determine which
-image variants to work on (based on `--skip` and `--only` values) and what
-actions will be taken, based on existence of local/imported/published images, and
-generate the `actions.yaml` file.  Providing the `--revise` flag allows you to
-rebuild local images that were previously built, reimport unpublished images to
-cloud providers, and bump the "revision" value of previously published images --
-this is useful if published images require fixes but the Alpine release itself
-isn't changing; published images are not removed (though they may be pruned once
-their "end-of-life" date has passed).
+The `local` step builds local images with QEMU, for those that are not already
+built locally or have already been imported.
 
-At this point, `build` executes Packer, which is responsible for the remaining
-**local**, **import**, and **publish** steps -- and also for parallelization, if
-the `--parallel` argument is given.  Because build hardware varies, it is also
-possible to tune a number of QEMU timeouts and memory requirements by providing
-an HCL2 Packer Vars file and specifying `--vars <filename>` to override the
-defaults in `alpine.pkr.hcl`.
+The `import` step imports the local images into the cloud providers' default
+regions, unless they've already been imported.  At this point the images are
+not available publicly, allowing for additional testing prior to publishing.
 
-### Packer and `alpine.pkr.hcl`
-
-Packer loads and merges `actions.yaml` and `configs.yaml`, and iterates the
-resulting object in order to determine what it should do with each image
-variant configuration.
-
-`alpine.pkr.hcl` defines two base `source` blocks --  `null` is used when an
-image variant is already built locally and/or already imported to the
-destination cloud provider; otherwise, the `qemu` source is used.
-
-The `qemu` builder spins up a QEMU virtual machine with a blank virtual disk
-attached, using the latest stable Alpine Linux Virtual ISO, brings up the VM's
-network, enables the SSH daemon, and sets a random password for root.
-
-If an image variant is to be **built locally**, the two dynamic provisioners copy
-the required data for the setup scripts to the VM's `/tmp/` directory, and then
-run those setup scripts.  It's these scripts that are ultimately responsible for
-installing and configuring the desired image on the attached virtual disk.
-When the setup scripts are complete, the virtual machine is shut down, and the
-resulting local disk image can be found at
-`work/images/<cloud>/<build-name>/image.qcow2`.
-
-The dynamic post-processor uses the `cloud_helper.py` script to **import** a
-local image to the cloud provider, and/or **publish** an imported image to the
-cloud provider's destination regions, based on what actions are applicable for
-that image variant.  When the **publish** step is reapplied to an
-already-published image, the script ensures that images have been copied to all
-destination regions (for example, if the cloud provider recently added a new
-region), and that all launch permissions are set as expected.
+The `publish` step copies the image from the default region to other regions,
+if they haven't already been copied there.  This step will always update
+image permissions, descriptions, tags, and deprecation date (if applicable)
+in all regions where the image has been published.
 
 ### The `cloud_helper.py` Script
 
-This script is only meant to be imported by `build` and called from Packer, and
-provides a normalized cloud-agnostic way of doing common cloud operations --
-getting details about a variant's latest imported image, importing new local
-image to the cloud, removing a previouly imported (but unpublished) image so it
-can be replaced, or publishing an imported image to destination regions.
+This script is meant to be called only by Packer from its `post-processor`
+block for image `import` and `publish` steps.
 
 ----
 ## Build Configuration
 
-The `build` script generates `work/configs.yaml` based on the contents of the
-top-level config file, `work/configs/configs.conf`; normally this is a symlink to
-`alpine.conf`, but can be overridden for custom builds.  All configs are
-declared in [HOCON](https://github.com/lightbend/config/blob/master/HOCON.md)
-format, which allows importing from other files, simple variable interpolation,
-and easy merging of objects.  This flexibility helps keep configuration
-[DRY](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself).
-
-The top-level `build.conf` has three main blocks, `Default` (default/starting
-values), `Dimensions` (with configs that apply in different circumstances), and
-`Mandatory` (required/final values).  The configuration for these blocks are
-merged in this exact order.
-
-### Dimensions and Build Variants
-
-Build variants _(I was watching Loki™ at the time...)_ are the sets of
-dimensional "features" and related configuration details produced from a
-Cartesian product across each of the dimensional keys.  Dimensional configs are
-merged together in the order they appear in `build.conf`.
-
-If two dimensional keys are incompatible (for example, **version/3.11** did not
-yet support **arch/aarch64**), an `EXCLUDE` directive indicates that such a
-variant is non-viable, and will be skipped.
-
-Likewise, if one dimension's configuration depends on the value of a different
-dimensional key, the `WHEN` directive will supply the conditional config
-details when that other dimensional key is part of the variant.
-
-Currently the base set of dimensions (and dimension keys) are...
-
-**version** - current "release" value for each is autodetected, and always a
- component of an image's name
-* **edge** ("release" value is the current UTC date)
-* all *non-EOL* Alpine Linux versions
-
- **arch** - machine architecture
- * **x86_64** (aka "amd64")
- * **aarch64** (aka "arm64")
-
-**firmware** - machine boot firmware
-* **bios** (legacy BIOS)
-* **uefi**
-
-**bootstrap** - image instantiation bootstrap is provided by...
-* **tiny** (tiny-cloud-boostrap)
-* **cloudinit** (cloud-init)
-
-**cloud** - cloud provider or platform
-* **aws** - Amazone Web Services / EC2
-* **oci** - Oracle Cloud Infrastructure _(WiP)_
-* **gcp** - Google Cloud Platform _(WiP)_
-* **azure** - Microsoft Azure _(WiP)_
-
-...each dimension may (or may not) contribute to the image name or description,
-if the dimensional key's config contributes to the `name` or `description`
-array values.
-
-### Customized Builds
-
-_(TODO)_
+For more in-depth information about how the build system configuration works,
+how to create custom config overlays, and details about individual config
+settings, see [CONFIGURATION.md](CONFIGURATION.md).
