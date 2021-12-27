@@ -1,3 +1,14 @@
+# ***NOTICE***
+
+**This repository has been retired in favor of its direct descendant,
+[alpine-cloud-images](https://gitlab.alpinelinux.org/alpine/cloud/alpine-cloud-images),
+which supports building images for multiple cloud providers; the new repo was
+forked from this one, and all post-fork commits can be found in its
+[alpine-ec2-ami](https://gitlab.alpinelinux.org/alpine/cloud/alpine-cloud-images/-/tree/alpine-ec2-ami)
+branch.**
+
+----
+----
 # Alpine Linux EC2 AMI Builder
 
 These are the official Alpine AWS AMIs. For an index of images see the
