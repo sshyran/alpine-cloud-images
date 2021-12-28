@@ -366,6 +366,7 @@ class ImageConfig():
         actions = {}
         revision = 0
         remote_image = clouds.latest_build_image(self)
+        log.debug('\n%s', remote_image)
         step_state = step == 'state'
 
         # enable actions based on the specified step
@@ -407,17 +408,17 @@ class ImageConfig():
         elif remote_image:
             if remote_image.imported:
                 # already imported, don't build/import again
-                log.info('%s - already imported', self.image_key)
+                log.debug('%s - already imported', self.image_key)
                 actions.pop('build', None)
                 actions.pop('import', None)
 
             if remote_image.published:
                 # NOTE: re-publishing can update perms or push to new regions
-                log.info('%s - already published', self.image_key)
+                log.debug('%s - already published', self.image_key)
 
         if self.local_path.exists():
             # local image's already built, don't rebuild
-            log.info('%s - already locally built', self.image_key)
+            log.debug('%s - already locally built', self.image_key)
             actions.pop('build', None)
 
         # merge remote_image data into image state

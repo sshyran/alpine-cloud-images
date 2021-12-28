@@ -128,10 +128,10 @@ def install_overlay(overlay):
             if is_images_conf(overlay, src_x):
                 rel_x = os.readlink(src_x)
                 if os.path.islink(dest_x):
-                    print(f"\toverriding {dest_x}")
+                    log.debug('overriding %s', dest_x)
                     os.unlink(dest_x)
 
-                print(f"\tln -s {rel_x} {dest_x}")
+                log.debug('ln -s %s %s', rel_x, dest_x)
                 os.symlink(rel_x, dest_x)
                 continue
 

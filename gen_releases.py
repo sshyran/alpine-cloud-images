@@ -7,11 +7,13 @@ import sys
 import textwrap
 
 NOTE = textwrap.dedent("""
-    This script's output is meant to be compatible with alpine-ec2-ami's
-    releases.yaml, in order to bridge the gap until https://alpinelinux.org/cloud
-    can be updated to be generated from another source, or dynamically calls an
-    published image metadata service.  This script should only be run after
-    the main 'build' script has been used successfully to publish all images.
+    This script's output is compatible with the retired alpine-ec2-ami repo's
+    releases/alpine.yaml, in order to bridge the gap until
+    https://alpinelinux.org/cloud dynamically calls a published-image metadata
+    service.  This script should only be run after the main 'build' script has
+    been used successfully to publish ALL images, and the STDOUT should be
+    committed to the https://gitlab.alpinelinux.org/alpine/infra/alpine-mksite
+    repo as 'cloud/releases-in.yaml'.
     """)
 
 sys.pycache_prefix = 'work/__pycache__'

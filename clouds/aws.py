@@ -204,13 +204,13 @@ class AWSCloudAdapter(CloudAdapterInterface):
             img = ec2c.register_image(
                 Architecture=self.ARCH[ic.arch],
                 BlockDeviceMappings=[{
-                    'DeviceName': 'xvda',
+                    'DeviceName': '/dev/xvda',
                     'Ebs': {'SnapshotId': snapshot_id}
                 }],
                 Description=description,
                 EnaSupport=True,
                 Name=ic.image_name,
-                RootDeviceName='xvda',
+                RootDeviceName='/dev/xvda',
                 SriovNetSupport='simple',
                 VirtualizationType='hvm',
                 BootMode=self.BOOT_MODE[ic.firmware],
