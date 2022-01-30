@@ -10,18 +10,20 @@ class Alpine():
 
     DEFAULT_RELEASES_URL = 'https://alpinelinux.org/releases.json'
     DEFAULT_CDN_URL = 'https://dl-cdn.alpinelinux.org/alpine'
+    DEFAULT_WEB_TIMEOUT = 5
 
-    def __init__(self, releases_url=None, cdn_url=None):
+    def __init__(self, releases_url=None, cdn_url=None, web_timeout=None):
         self.now = datetime.utcnow()
         self.release_today = self.now.strftime('%Y%m%d')
         self.eol_tomorrow = (self.now + timedelta(days=1)).strftime('%F')
         self.latest = None
         self.versions = {}
         self.releases_url = releases_url or self.DEFAULT_RELEASES_URL
+        self.web_timeout = web_timeout or self.DEFAULT_WEB_TIMEOUT
         self.cdn_url = cdn_url or self.DEFAULT_CDN_URL
 
         # get all Alpine versions, and their EOL and latest release
-        res = urlopen(self.releases_url)
+        res = urlopen(self.releases_url, timeout=self.web_timeout)
         r = json.load(res)
         branches = sorted(
             r['release_branches'], reverse=True,
@@ -89,8 +91,7 @@ class Alpine():
         ver = self._ver(ver)
         repo_url = self.repo_url(repo, arch, ver=ver)
         apks_re = re.compile(f'"{apk}-(\\d.*)\\.apk"')
-        print(repo_url)
-        res = urlopen(repo_url)
+        res = urlopen(repo_url, timeout=self.web_timeout)
         for line in map(lambda x: x.decode('utf8'), res):
             if not line.startswith('<a href="'):
                 continue

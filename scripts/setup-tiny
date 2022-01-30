@@ -1,67 +1,15 @@
 #!/bin/sh -eu
 # vim: ts=4 et:
 
-# NOTE:  This is lifted almost verbatim from alpine-ec2-ami's setup-ami script
-#   While refactoring that, it became apparent that these bits really belonged
-#   to the tiny-ec2-bootstrap package, and in order to also provide a
-#   "cloud-init" image flavor, we needed separate these parts out.
-#
-# It is our intention to eventually incorporate this in a tiny-cloud-bootstrap
-#   package (and per-cloud subpackages).
-
 [ -z "$DEBUG" ] || [ "$DEBUG" = 0 ] || set -x
 
 TARGET=/mnt
-SETUP=/tmp/setup-tiny.d
 
-die() {
-    printf '\033[1;7;31m FATAL: %s \033[0m\n' "$@" >&2  # bold reversed red
-    exit 1
-}
 einfo() {
     printf '\n\033[1;7;36m> %s <\033[0m\n' "$@" >&2     # bold reversed cyan
 }
 
-setup_mdev() {
-    echo " * Setting up mdev"
-    install -o root -g root -Dm755 -t "$TARGET/lib/mdev" \
-        "$SETUP/nvme-ebs-links" \
-        "$SETUP/eth-eni-hotplug"
-
-    # insert nvme ebs mdev configs just above "# fallback" comment
-    sed -n -i \
-        -e "/# fallback/r $SETUP/mdev-ec2.conf" \
-        -e 1x -e '2,${x;p}' -e '${x;p}' \
-        "$TARGET/etc/mdev.conf"
-}
-
-setup_networking() {
-    echo " * Setting up networking"
-    # configure standard interfaces
-    IFACE_CFG="$TARGET/etc/network/interfaces"
-    install -o root -g root -Dm755 -d "$SETUP/interfaces.d" "$IFACE_CFG.d"
-    install -o root -g root -Dm644 -t "$IFACE_CFG.d" \
-        "$SETUP/interfaces.d/"*
-    cat "$IFACE_CFG.d/lo" "$IFACE_CFG.d/eth0" > "$IFACE_CFG"
-
-    install -o root -g root -Dm755 -t "$TARGET/etc/network" \
-        "$SETUP/assemble-interfaces"
-
-    # install ucdhcp hooks for EC2 ENI IPv6 and secondary IPv4
-    install -o root -g root -Dm755 -t "$TARGET/usr/share/udhcpc" \
-        "$SETUP/eth-eni-hook"
-    for i in post-bound post-renew; do
-        mkdir -p "$TARGET/etc/udhcpc/$i"
-        ln -sf /usr/share/udhcpc/eth-eni-hook \
-            "$TARGET/etc/udhcpc/$i"
-    done
-
-    # install ENI interface setup init script
-    install -o root -g root -Dm755 -t "$TARGET/etc/init.d" \
-        "$SETUP/eth-eni-setup"
-}
-
-einfo "Installing up tiny bootstrap components..."
-setup_mdev
-setup_networking
-echo "EC2_USER=$IMAGE_LOGIN" > "$TARGET/etc/conf.d/tiny-ec2-bootstrap"
+einfo "Configuring Tiny Cloud..."
+sed -i.bak -Ee "s/^#?CLOUD_USER=.*/CLOUD_USER=$IMAGE_LOGIN/" \
+    "$TARGET"/etc/conf.d/tiny-cloud
+rm "$TARGET"/etc/conf.d/tiny-cloud.bak

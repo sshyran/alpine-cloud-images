@@ -175,9 +175,16 @@ install_grub_efi() {
 configure_system() {
     einfo "Configuring System"
 
+    # default network configuration
+    install -o root -g root -Dm644 -t "$TARGET/etc/network" "$SETUP/interfaces"
+
+    # configure NTP server, if specified
+    [ -n "$NTP_SERVER" ] && \
+        sed -e 's/^pool /server /' -e "s/pool.ntp.org/$NTP_SERVER/g" \
+            -i "$TARGET/etc/chrony/chrony.conf"
+
     # setup fstab
-    install -o root -g root -Dm644 -t "$TARGET/etc" \
-        "$SETUP/fstab"
+    install -o root -g root -Dm644 -t "$TARGET/etc" "$SETUP/fstab"
     # if we're using an EFI bootloader, add extra line for EFI partition
     if [ "$FIRMWARE" = uefi ]; then
         cat "$SETUP/fstab.grub-efi" >> "$TARGET/etc/fstab"

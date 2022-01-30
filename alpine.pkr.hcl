@@ -163,6 +163,7 @@ build {
         "KERNEL_MODULES=${B.value.kernel_modules}",
         "KERNEL_OPTIONS=${B.value.kernel_options}",
         "MOTD=${B.value.motd}",
+        "NTP_SERVER=${B.value.ntp_server}",
         "PACKAGES_ADD=${B.value.packages.add}",
         "PACKAGES_DEL=${B.value.packages.del}",
         "PACKAGES_NOSCRIPTS=${B.value.packages.noscripts}",
