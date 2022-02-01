@@ -16,19 +16,20 @@ following cloud platforms...
 ...we are working on also publishing offical images to other major cloud
 providers.
 
-Each published image's name contains the Alpine version release, architecture, firmware, bootstrap, and image revision.  These details (and more) are also
+Each published image's name contains the Alpine version release, architecture,
+firmware, bootstrap, and image revision.  These details (and more) are also
 tagged on the images...
 
 | Tag | Description / Values |
 |-----|----------------------|
-| name | `alpine-`_`release-arch-firmware-bootstrap-`_`r`_`revision`_ |
+| name | `alpine-`_`release`_`-`_`arch`_`-`_`firmware`_`-`_`bootstrap`_`-r`_`revision`_ |
 | project | `https://alpinelinux.org/cloud` |
-| image_key | _`release-arch-firmware-bootstrap-cloud`_ |
+| image_key | _`release`_`-`_`arch`_`-`_`firmware`_`-`_`bootstrap`_`-`_`cloud`_ |
 | version | Alpine version (_`x.y`_ or `edge`) |
 | release | Alpine release (_`x.y.z`_ or _`YYYYMMDD`_ for edge) |
 | arch | architecture (`aarch64` or `x86_64`) |
 | firmware | boot mode (`bios` or `uefi`) |
-| bootstrap | initial bootstrap system (`tiny` = tiny-ec2-bootstrap) |
+| bootstrap | initial bootstrap system (`tiny` = Tiny Cloud) |
 | cloud | provider short name (`aws`) |
 | revision | image revision number |
 | imported | image import timestamp |
@@ -154,7 +155,8 @@ each image will be processed serially; providing the `--parallel` argument with
 a value greater than 1 will parallelize operations.  The degree to which you
 can parallelze `local` image builds will depend on the local build hardware --
 as QEMU virtual machines are launched for each image being built.  Image
-`import` and `publish` steps are much more lightweight, and can support higher parallelism.
+`import` and `publish` steps are much more lightweight, and can support higher
+parallelism.
 
 The `local` step builds local images with QEMU, for those that are not already
 built locally or have already been imported.
