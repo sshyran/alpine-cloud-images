@@ -95,7 +95,7 @@ def clean_work():
     for x in (set(os.listdir('work')) - WORK_CLEAN):
         x = os.path.join('work', x)
         log.debug('removing %s', x)
-        if os.path.isdir(x):
+        if os.path.isdir(x) and not os.path.islink(x):
             shutil.rmtree(x)
         else:
             os.unlink(x)

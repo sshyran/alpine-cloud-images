@@ -22,6 +22,8 @@ setup_builder() {
     einfo "Setting up Builder Instance"
     setup-apkrepos -1   # main repo via dl-cdn
     # ODO? also uncomment community repo?
+    # Always use latest versions within the release, security patches etc.
+    apk upgrade --no-cache --available
     apk --no-cache add \
         e2fsprogs \
         dosfstools \
