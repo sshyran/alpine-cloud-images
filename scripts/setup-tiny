@@ -9,7 +9,13 @@ einfo() {
     printf '\n\033[1;7;36m> %s <\033[0m\n' "$@" >&2     # bold reversed cyan
 }
 
-einfo "Configuring Tiny Cloud..."
-sed -i.bak -Ee "s/^#?CLOUD_USER=.*/CLOUD_USER=$IMAGE_LOGIN/" \
-    "$TARGET"/etc/conf.d/tiny-cloud
-rm "$TARGET"/etc/conf.d/tiny-cloud.bak
+if [ "$VERSION" = "3.12" ]; then
+    # tiny-cloud-network requires ifupdown-ng, not in 3.12
+    einfo "Configuring Tiny EC2 Bootstrap..."
+    echo "EC2_USER=$IMAGE_LOGIN" > /etc/conf.d/tiny-ec2-bootstrap
+else
+    einfo "Configuring Tiny Cloud..."
+    sed -i.bak -Ee "s/^#?CLOUD_USER=.*/CLOUD_USER=$IMAGE_LOGIN/" \
+        "$TARGET"/etc/conf.d/tiny-cloud
+    rm "$TARGET"/etc/conf.d/tiny-cloud.bak
+fi
