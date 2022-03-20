@@ -93,6 +93,9 @@ yaml = YAML()
 
 releases = dictfactory()
 for i_key, i_cfg in configs.get().items():
+    if i_cfg.bootstrap != 'tiny':
+        continue
+
     release = i_cfg.version if i_cfg.version == 'edge' else i_cfg.release
     releases[release][i_key][i_cfg.tags.name] = dict(i_cfg.tags) | {
         'creation_date': i_cfg.published,
