@@ -343,6 +343,7 @@ class AWSCloudAdapter(CloudAdapterInterface):
                         if fresh:
                             tags.published = datetime.utcnow().isoformat()
 
+                        tags.Name = tags.name   # because AWS is special
                         image.create_tags(Tags=tags.as_list())
 
                         # tag image's snapshot, too
@@ -358,14 +359,15 @@ class AWSCloudAdapter(CloudAdapterInterface):
                         )
 
                         # apply launch perms
-                        log.info('%s: Applying launch perms to %s', r, image.id)
-                        image.reset_attribute(Attribute='launchPermission')
-                        image.modify_attribute(
-                            Attribute='launchPermission',
-                            OperationType='add',
-                            UserGroups=perms['groups'],
-                            UserIds=perms['users'],
-                        )
+                        if perms['groups'] or perms['users']:
+                            log.info('%s: Applying launch perms to %s', r, image.id)
+                            image.reset_attribute(Attribute='launchPermission')
+                            image.modify_attribute(
+                                Attribute='launchPermission',
+                                OperationType='add',
+                                UserGroups=perms['groups'],
+                                UserIds=perms['users'],
+                            )
 
                         # set up AMI deprecation
                         ec2c = image.meta.client
