@@ -370,10 +370,13 @@ class AWSCloudAdapter(CloudAdapterInterface):
                         # set up AMI deprecation
                         ec2c = image.meta.client
                         log.info('%s: Setting EOL deprecation time on %s', r, image.id)
-                        ec2c.enable_image_deprecation(
-                            ImageId=image.id,
-                            DeprecateAt=f"{tags.end_of_life}T23:59:59Z"
-                        )
+                        try:
+                            ec2c.enable_image_deprecation(
+                                ImageId=image.id,
+                                DeprecateAt=f"{tags.end_of_life}T23:59:59Z"
+                            )
+                        except Exception:
+                            log.warning('Unable to set EOL Deprecation on %s image:', r, exc_info=True)
 
                         artifacts[r] = image.id
 

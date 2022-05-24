@@ -206,6 +206,12 @@ class ImageConfig():
     def image_description(self):
         return self.description.format(**self.__dict__)
 
+    def image_url(self, region, image_id):
+        return self.cloud_image_url.format(region=region, image_id=image_id, **self.__dict__)
+
+    def launch_url(self, region, image_id):
+        return self.cloud_launch_url.format(region=region, image_id=image_id, **self.__dict__)
+
     @property
     def tags(self):
         # stuff that really ought to be there

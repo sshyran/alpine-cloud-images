@@ -48,13 +48,19 @@ from image_configs import ImageConfigManager
 
 ### Constants & Variables
 
-STEPS = ['configs', 'state', 'local', 'import', 'publish']
+STEPS = ['configs', 'state', 'rollback', 'local', 'import', 'publish']
 LOGFORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 WORK_CLEAN = {'bin', 'include', 'lib', 'pyvenv.cfg', '__pycache__'}
 WORK_OVERLAYS = ['configs', 'scripts']
-OVMF_FIRMWARE = {
-    'aarch64': 'usr/share/OVMF/QEMU_EFI.fd',
-    'x86_64': 'usr/share/OVMF/OVMF.fd'
+UEFI_FIRMWARE = {
+    'aarch64': {
+        'apk': 'aavmf',
+        'bin': 'usr/share/AAVMF/QEMU_EFI.fd',
+    },
+    'x86_64': {
+        'apk': 'ovmf',
+        'bin': 'usr/share/OVMF/OVMF.fd',
+    }
 }
 alpine = Alpine()
 
@@ -120,6 +126,9 @@ def install_overlay(overlay):
     os.makedirs(dest_dir, exist_ok=True)
     for src in unique_list(['.'] + args.custom):
         src_dir = os.path.join(src, overlay)
+        if not os.path.exists(src_dir):
+            log.debug('%s does not exist, skipping', src_dir)
+            continue
         for x in glob(os.path.join(src_dir, '**'), recursive=True):
             x = x.removeprefix(src_dir + '/')
             src_x = os.path.join(src_dir, x)
@@ -169,10 +178,12 @@ def install_qemu_firmware():
     log.info('Installing UEFI firmware in work environment')
 
     os.makedirs(firm_dir)
-    for arch, bin in OVMF_FIRMWARE.items():
-        v = alpine.apk_version('community', arch, 'ovmf')
-        ovmf_url = f"{alpine.repo_url('community', arch)}/ovmf-{v}.apk"
-        data = urlopen(ovmf_url).read()
+    for arch, a_cfg in UEFI_FIRMWARE.items():
+        apk = a_cfg['apk']
+        bin = a_cfg['bin']
+        v = alpine.apk_version('community', arch, apk)
+        apk_url = f"{alpine.repo_url('community', arch)}/{apk}-{v}.apk"
+        data = urlopen(apk_url).read()
 
         # Python tarfile library can't extract from APKs
         tar_cmd = ['tar', '-zxf', '-', '-C', firm_dir, bin]
@@ -241,6 +252,8 @@ console.setFormatter(logfmt)
 log.addHandler(console)
 log.debug(args)
 
+# TODO: rollback requires --revise
+
 # set up credential provider, if we're going to use it
 if args.use_broker:
     clouds.set_credential_provider(debug=args.debug)
@@ -274,7 +287,7 @@ if not image_configs.refresh_state(
     log.info('No pending actions to take at this time.')
     sys.exit(0)
 
-if args.step == 'state':
+if args.step == 'state' or args.step == 'rollback':
     sys.exit(0)
 
 # install firmware if missing
