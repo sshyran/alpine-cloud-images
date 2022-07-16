@@ -190,7 +190,7 @@ def install_qemu_firmware():
         p = Popen(tar_cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE)
         out, err = p.communicate(input=data)
         if p.returncode:
-            log.critical('Unable to untar %s to get %s', ovmf_url, bin)
+            log.critical('Unable to untar %s to get %s', apk_url, bin)
             log.error('%s = %s', p.returncode, ' '.join(tar_cmd))
             log.error('STDOUT:\n%s', out.decode('utf8'))
             log.error('STDERR:\n%s', err.decode('utf8'))

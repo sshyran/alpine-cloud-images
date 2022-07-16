@@ -373,7 +373,7 @@ class AWSCloudAdapter(CloudAdapterInterface):
                         try:
                             ec2c.enable_image_deprecation(
                                 ImageId=image.id,
-                                DeprecateAt=f"{tags.end_of_life}T23:59:59Z"
+                                DeprecateAt=f"{tags.end_of_life}T23:59:00Z"
                             )
                         except Exception:
                             log.warning('Unable to set EOL Deprecation on %s image:', r, exc_info=True)
