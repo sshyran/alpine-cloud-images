@@ -100,18 +100,6 @@ class ImageConfigManager():
             for dim, dim_key in dim_map.items():
                 dim_cfg = deepcopy(cfg.Dimensions[dim][dim_key])
 
-                exclude = dim_cfg.pop('EXCLUDE', None)
-                if exclude and set(exclude) & set(dim_keys):
-                    self.log.debug('%s SKIPPED, %s excludes %s', config_key, dim_key, exclude)
-                    skip = True
-                    break
-
-                if eol := dim_cfg.get('end_of_life', None):
-                    if self.now > datetime.fromisoformat(eol):
-                        self.log.warning('%s SKIPPED, %s end_of_life %s', config_key, dim_key, eol)
-                        skip = True
-                        break
-
                 image_config._merge(dim_cfg)
 
                 # now that we're done with ConfigTree/dim_cfg, remove " from dim_keys
@@ -123,6 +111,18 @@ class ImageConfigManager():
                         # WHEN keys with spaces are considered "or" operations
                         if len(set(when_keys.split(' ')) & dim_keys) > 0:
                             image_config._merge(when_conf)
+
+                exclude = image_config._pop('EXCLUDE', None)
+                if exclude and set(exclude) & set(dim_keys):
+                    self.log.debug('%s SKIPPED, %s excludes %s', config_key, dim_key, exclude)
+                    skip = True
+                    break
+
+                if eol := image_config._get('end_of_life', None):
+                    if self.now > datetime.fromisoformat(eol):
+                        self.log.warning('%s SKIPPED, %s end_of_life %s', config_key, dim_key, eol)
+                        skip = True
+                        break
 
             if skip is True:
                 continue
@@ -206,6 +206,9 @@ class ImageConfig():
     def image_description(self):
         return self.description.format(**self.__dict__)
 
+    # TODO: download_url
+
+    # TODO? region_url instead?
     def image_url(self, region, image_id):
         return self.cloud_image_url.format(region=region, image_id=image_id, **self.__dict__)
 
@@ -260,6 +263,9 @@ class ImageConfig():
 
     def _merge(self, obj={}):
         mergedeep.merge(self.__dict__, self._deep_dict(obj), strategy=mergedeep.Strategy.ADDITIVE)
+
+    def _get(self, attr, default=None):
+        return self.__dict__.get(attr, default)
 
     def _pop(self, attr, default=None):
         return self.__dict__.pop(attr, default)

@@ -5,6 +5,7 @@ class CloudAdapterInterface:
     def __init__(self, cloud, cred_provider=None):
         self._sdk = None
         self._sessions = {}
+        self._clients = {}
         self.cloud = cloud
         self.cred_provider = cred_provider
         self._default_region = None
@@ -25,6 +26,9 @@ class CloudAdapterInterface:
         raise NotImplementedError
 
     def session(self, region=None):
+        raise NotImplementedError
+
+    def client(self, client, region=None):
         raise NotImplementedError
 
     def latest_build_image(self, project, image_key):

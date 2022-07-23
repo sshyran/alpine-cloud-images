@@ -1,6 +1,6 @@
 # vim: ts=4 et:
 
-from . import aws   # , oci, gcp, azure
+from . import aws, nocloud   # , oci, gcp, azure
 
 ADAPTERS = {}
 
@@ -12,7 +12,7 @@ def register(*mods):
             ADAPTERS[cloud] = p
 
 
-register(aws)   # , oci, azure, gcp)
+register(aws, nocloud)   # , oci, azure, gcp)
 
 
 # using a credential provider is optional, set across all adapters
