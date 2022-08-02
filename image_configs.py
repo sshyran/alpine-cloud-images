@@ -187,6 +187,10 @@ class ImageConfig():
             self.tags = tags
 
     @property
+    def v_version(self):
+        return 'edge' if self.version == 'edge' else 'v' + self.version
+
+    @property
     def local_dir(self):
         return Path('work/images') / self.cloud / self.image_key
 
@@ -199,6 +203,10 @@ class ImageConfig():
         return self.local_dir / 'published.yaml'
 
     @property
+    def artifacts_yaml(self):
+        return self.local_dir / 'artifacts.yaml'
+
+    @property
     def image_name(self):
         return self.name.format(**self.__dict__)
 
@@ -206,11 +214,25 @@ class ImageConfig():
     def image_description(self):
         return self.description.format(**self.__dict__)
 
-    # TODO: download_url
+    @property
+    def image_file(self):
+        return '.'.join([self.image_name, self.image_format])
+
+    @property
+    def image_path(self):
+        return self.local_dir / self.image_file
+
+    @property
+    def upload_url(self):
+        return '/'.join([self.upload_path, self.remote_path, self.image_file]).format(**self.__dict)
+
+    @property
+    def download_url(self):
+        return '/'.join([self.download_path, self.remote_path, self.image_file]).format(**self.__dict)
 
     # TODO? region_url instead?
-    def image_url(self, region, image_id):
-        return self.cloud_image_url.format(region=region, image_id=image_id, **self.__dict__)
+    def region_url(self, region, image_id):
+        return self.cloud_region_url.format(region=region, image_id=image_id, **self.__dict__)
 
     def launch_url(self, region, image_id):
         return self.cloud_launch_url.format(region=region, image_id=image_id, **self.__dict__)
@@ -447,10 +469,9 @@ class ImageConfig():
             }
 
         # update artifacts, if we've got 'em
-        artifacts_yaml = self.local_dir / 'artifacts.yaml'
-        if artifacts_yaml.exists():
+        if self.artifacts_yaml.exists():
             yaml = YAML()
-            self.artifacts = yaml.load(artifacts_yaml)
+            self.artifacts = yaml.load(self.artifacts_yaml)
         else:
             self.artifacts = None
 

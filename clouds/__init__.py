@@ -32,6 +32,10 @@ def latest_build_image(config):
     )
 
 
+def convert_image(config):
+    return ADAPTERS[config.cloud].convert_image(config)
+
+
 def import_image(config):
     return ADAPTERS[config.cloud].import_image(config)
 
@@ -40,5 +44,13 @@ def remove_image(config, image_id):
     return ADAPTERS[config.cloud].remove_image(image_id)
 
 
+def upload_image(config):
+    return ADAPTERS[config.cloud].upload_image(config)
+
+
 def publish_image(config):
     return ADAPTERS[config.cloud].publish_image(config)
+
+
+def release_image(config):
+    return ADAPTERS[config.cloud].release_image(config)

@@ -7,6 +7,10 @@ import sys
 import textwrap
 
 NOTE = textwrap.dedent("""
+    NOTE: This is an old script, replaced by 'gen_mksite_releases.py' after
+    https://gitlab.alpinelinux.org/alpine/infra/alpine-mksite/-/merge_requests/52
+    is merged.
+
     This script's output is compatible with the retired alpine-ec2-ami repo's
     releases/alpine.yaml, in order to bridge the gap until
     https://alpinelinux.org/cloud dynamically calls a published-image metadata

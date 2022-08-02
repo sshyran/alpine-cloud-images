@@ -282,10 +282,6 @@ not they're included in the final list...
 | `false` | skip |
 | `true`  | include |
 
-### `builder` string
-
-The Packer builder that's used to build images.  This is set to `qemu`.
-
 ### `qemu.machine_type` string
 
 The QEMU machine type to use when building local images.  For x86_64, this is

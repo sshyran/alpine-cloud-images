@@ -79,9 +79,12 @@ for image_key in args.image_keys:
     image_config = configs.get(image_key)
 
     if args.action == 'import':
+        clouds.convert_image(image_config)
         clouds.import_image(image_config)
+        #clouds.upload_image(image_config)
 
     elif args.action == 'publish':
         os.makedirs(image_config.local_dir, exist_ok=True)
         artifacts = clouds.publish_image(image_config)
-        yaml.dump(artifacts, Path(image_config.local_dir) / 'artifacts.yaml')
+        yaml.dump(artifacts, image_config.artifacts_yaml)
+        #clouds.release_image(image_config) # sha256, sign, metadata, put in place for downloading

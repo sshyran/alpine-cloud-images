@@ -80,7 +80,7 @@ build {
   # QEMU builder
   dynamic "source" {
     for_each = { for b, c in local.configs:
-        b => c if contains(c.actions, "build") && c.builder == "qemu"
+        b => c if contains(c.actions, "build")
       }
     iterator = B
     labels = ["qemu.alpine"]  # links us to the base source
@@ -129,7 +129,7 @@ build {
     iterator = B
     labels = ["file"]
     content {
-      only = [ "${B.value.builder}.${B.key}" ]  # configs specific to one build
+      only = [ "qemu.${B.key}" ]  # configs specific to one build
 
       sources     = [ for d in B.value.script_dirs: "work/scripts/${d}" ]
       destination = "/tmp/"
@@ -144,7 +144,7 @@ build {
     iterator = B
     labels = ["shell"]
     content {
-      only = [ "${B.value.builder}.${B.key}" ]  # configs specific to one build
+      only = [ "qemu.${B.key}" ]  # configs specific to one build
 
       scripts = [ for s in B.value.scripts: "work/scripts/${s}" ]
       use_env_var_file = true
@@ -186,7 +186,7 @@ build {
     iterator = B
     labels = ["shell-local"]
     content {
-      only = [ "${B.value.builder}.${B.key}", "null.${B.key}" ]
+      only = [ "qemu.${B.key}", "null.${B.key}" ]
       inline = [ for action in ["import", "publish"]:
         "./cloud_helper.py ${action} ${local.debug_arg} ${local.broker_arg} ${B.key}" if contains(B.value.actions, action)
       ]

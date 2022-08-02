@@ -27,12 +27,11 @@ class NoCloudAdapter(CloudAdapterInterface):
 
     # import an image
     def import_image(self, ic):
-        # TODO: upload to temporary location
         # TODO: what exactly should be returned?
         return DictObj({
             'revision': ic.revision,
             'imported': datetime.now(),
-            'import_id': 'url?',
+            # 'import_id': '?',
         })
 
     # remove an (unpublished) image
@@ -42,8 +41,7 @@ class NoCloudAdapter(CloudAdapterInterface):
 
     # publish an image
     def publish_image(self, ic):
-        # TODO: move image from temporary to permanent location
-        # TODO: what exaclty should be returned?
+        # TODO: what exaclty should be returned?  nocloud isn't launchabl.
         return {
             'generic?':  'url?'
         }
