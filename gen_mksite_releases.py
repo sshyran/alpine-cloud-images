@@ -161,9 +161,6 @@ for i_key, i_cfg in configs.get().items():
             versions[version]['images'][image_name]['downloads'][cloud] |= {
                 'cloud': cloud,
                 'image_url':  i_cfg.download_url,
-                'gpg_url': i_cfg.download_url + '.asc',
-                'meta_url': i_cfg.download_url + '.yaml',
-                'sha256_url': i_cfg.download__url + '.sha256',
             }
             versions[version]['images'][image_name]['regions'][region] |= {
                 'cloud': cloud,

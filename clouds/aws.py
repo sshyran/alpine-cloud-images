@@ -134,14 +134,19 @@ class AWSCloudAdapter(CloudAdapterInterface):
 
             # import snapshot from S3
             log.info('Importing EC2 snapshot from %s', s3_url)
-            ss_import = ec2c.import_snapshot(
-                DiskContainer={
+            ss_import_opts = {
+                'DiskContainer': {
                     'Description': description,     # https://github.com/boto/boto3/issues/2286
                     'Format': 'VHD',
-                    'Url': s3_url
-                }
+                    'Url': s3_url,
+                },
+                'Encrypted': True if ic.encrypted else False,
                 # NOTE: TagSpecifications -- doesn't work with ResourceType: snapshot?
-            )
+            }
+            if type(ic.encrypted) is str:
+                ss_import_opts['KmsKeyId'] =  ic.encrypted
+
+            ss_import = ec2c.import_snapshot(**ss_import_opts)
             ss_task_id = ss_import['ImportTaskId']
             while True:
                 ss_task = ec2c.describe_import_snapshot_tasks(
@@ -291,13 +296,18 @@ class AWSCloudAdapter(CloudAdapterInterface):
                 log.info('%s: Already exists as %s', r, image.id)
             else:
                 ec2c = self.session(r).client('ec2')
+                copy_image_opts = {
+                    'Description': source.description,
+                    'Name': source.name,
+                    'SourceImageId': source_id,
+                    'SourceRegion': source_region,
+                    'Encrypted': True if ic.encrypted else False,
+                }
+                if type(ic.encrypted) is str:
+                    copy_image_opts['KmsKeyId'] = ic.encrypted
+
                 try:
-                    res = ec2c.copy_image(
-                        Description=source.description,
-                        Name=source.name,
-                        SourceImageId=source_id,
-                        SourceRegion=source_region,
-                    )
+                    res = ec2c.copy_image(**copy_image_opts)
                 except Exception:
                     log.warning('Skipping %s, unable to copy image:', r, exc_info=True)
                     continue

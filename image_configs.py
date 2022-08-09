@@ -224,11 +224,11 @@ class ImageConfig():
 
     @property
     def upload_url(self):
-        return '/'.join([self.upload_path, self.remote_path, self.image_file]).format(**self.__dict)
+        return '/'.join([self.upload_path, self.remote_path, self.image_file]).format(v_version=self.v_version, **self.__dict__)
 
     @property
     def download_url(self):
-        return '/'.join([self.download_path, self.remote_path, self.image_file]).format(**self.__dict)
+        return '/'.join([self.download_path, self.remote_path, self.image_file]).format(v_version=self.v_version, **self.__dict__)
 
     # TODO? region_url instead?
     def region_url(self, region, image_id):
