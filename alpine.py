@@ -68,6 +68,7 @@ class Alpine():
         rel = self.versions[ver]['release']
         return f"{self.cdn_url}/v{ver}/releases/{arch}/alpine-virt-{rel}-{arch}.iso"
 
+    # TODO: maybe we can also get links to version/releases announcments somewhere around here
     def version_info(self, ver=None):
         ver = self._ver(ver)
         if ver not in self.versions:

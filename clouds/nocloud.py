@@ -22,7 +22,7 @@ class NoCloudAdapter(CloudAdapterInterface):
 
     # get the latest imported image for a given build name
     def latest_build_image(self, project, image_key):
-        # TODO: get info from permanently published image (if exists)
+        # TODO: get info from latest download_path published image (if exists)
         return None
 
     # import an image
@@ -34,14 +34,13 @@ class NoCloudAdapter(CloudAdapterInterface):
             # 'import_id': '?',
         })
 
-    # remove an (unpublished) image
-    def remove_image(self, image_id):
-        # TODO: remove image from temporary location
+    # there's no cloud provider to delete/deregister the image
+    def delete_image(self, image_id):
         pass
 
     # publish an image
     def publish_image(self, ic):
-        # TODO: what exaclty should be returned?  nocloud isn't launchabl.
+        # TODO: what exaclty should be returned?  nocloud isn't launchable
         return {
             'generic?':  'url?'
         }

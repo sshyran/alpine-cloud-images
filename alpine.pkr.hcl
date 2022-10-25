@@ -29,6 +29,12 @@ variable "qemu" {
 ### Local Data
 
 locals {
+  # TODO: also include "release"?
+  # what the post-processor will do, if necessary
+  actions = [
+    "build", "upload", "import", "publish"
+  ]
+
   debug_arg   = var.DEBUG == 0 ? "" : "--debug"
   broker_arg  = var.USE_BROKER == 0 ? "" : "--use-broker"
 
@@ -102,8 +108,8 @@ build {
       # results
       output_directory  = "work/images/${B.value.cloud}/${B.value.image_key}"
       disk_size         = B.value.size
-      format            = B.value.local_format
-      vm_name           = "image.${B.value.local_format}"
+      format            = "qcow2"
+      vm_name           = "image.qcow2"
     }
   }
 
@@ -181,13 +187,13 @@ build {
   # import and/or publish cloud images
   dynamic "post-processor" {
     for_each = { for b, c in local.configs:
-       b => c if contains(c.actions, "import") || contains(c.actions, "publish")
+       b => c if length(setintersection(c.actions, local.actions)) > 0
     }
     iterator = B
     labels = ["shell-local"]
     content {
       only = [ "qemu.${B.key}", "null.${B.key}" ]
-      inline = [ for action in ["import", "publish"]:
+      inline = [ for action in local.actions:
         "./cloud_helper.py ${action} ${local.debug_arg} ${local.broker_arg} ${B.key}" if contains(B.value.actions, action)
       ]
     }

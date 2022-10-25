@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # vim: ts=4 et:
 
+# TODO: perhaps integrate into "./build release"
+
 # Ensure we're using the Python virtual env with our installed dependencies
 import os
 import sys

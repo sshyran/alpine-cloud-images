@@ -7,7 +7,7 @@ import os
 import time
 
 from datetime import datetime
-from subprocess import Popen, PIPE, run
+from subprocess import run
 
 from .interfaces.adapter import CloudAdapterInterface
 from image_configs import Tags, DictObj
@@ -95,6 +95,7 @@ class AWSCloudAdapter(CloudAdapterInterface):
         tags = Tags(from_list=i.tags)
         return DictObj({k: tags.get(k, None) for k in self.IMAGE_INFO})
 
+    # TODO: this needs a better name
     # get the latest imported image for a given build name
     def latest_build_image(self, project, image_key):
         images = self._get_images_with_tags(
@@ -225,10 +226,12 @@ class AWSCloudAdapter(CloudAdapterInterface):
             snapshot.delete()
             raise
 
+        # TODO: set ic.<tag> attributes from tags
+        # TODO: this isn't ever really used?
         return self._image_info(image)
 
     # remove an (unpublished) image
-    def remove_image(self, image_id):
+    def delete_image(self, image_id):
         log = logging.getLogger('build')
         ec2r = self.session().resource('ec2')
         image = ec2r.Image(image_id)
@@ -384,6 +387,7 @@ class AWSCloudAdapter(CloudAdapterInterface):
                 time.sleep(copy_wait)
                 copy_wait = 30
 
+        # TODO? ic.artifacts = artifacts
         return artifacts
 
 

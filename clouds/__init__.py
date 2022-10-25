@@ -1,5 +1,6 @@
 # vim: ts=4 et:
 
+# TODO: we may as well stub this out for everyone
 from . import aws, nocloud   # , oci, gcp, azure
 
 ADAPTERS = {}
@@ -25,6 +26,7 @@ def set_credential_provider(debug=False):
 
 ### forward to the correct adapter
 
+# TODO: this needs a better name
 def latest_build_image(config):
     return ADAPTERS[config.cloud].latest_build_image(
         config.project,
@@ -40,12 +42,8 @@ def import_image(config):
     return ADAPTERS[config.cloud].import_image(config)
 
 
-def remove_image(config, image_id):
-    return ADAPTERS[config.cloud].remove_image(image_id)
-
-
-def upload_image(config):
-    return ADAPTERS[config.cloud].upload_image(config)
+def delete_image(config, image_id):
+    return ADAPTERS[config.cloud].delete_image(image_id)
 
 
 def publish_image(config):

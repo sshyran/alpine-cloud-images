@@ -1,8 +1,10 @@
 # vim: ts=4 et:
 
+import hashlib
 import itertools
 import logging
 import mergedeep
+import os
 import pyhocon
 import shutil
 
@@ -10,6 +12,8 @@ from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from ruamel.yaml import YAML
+from subprocess import Popen, PIPE
+from urllib.parse import urlparse
 
 import clouds
 
@@ -48,7 +52,9 @@ class ImageConfigManager():
     def _load_yaml(self):
         self.log.info('Loading existing %s', self.yaml_path)
         for key, config in self.yaml.load(self.yaml_path).items():
-            self._configs[key] = ImageConfig(key, config)
+            self._configs[key] = ImageConfig(key, config, log=self.log, yaml=self.yaml)
+            # TODO: also pull in additional per-image metatdata from the build process?
+        
 
     # save resolved configs to YAML
     def _save_yaml(self):
@@ -90,7 +96,9 @@ class ImageConfigManager():
                 {
                     'image_key': image_key,
                     'release': release
-                } | dim_map
+                } | dim_map,
+                log=self.log,
+                yaml=self.yaml
             )
 
             # merge in the Default config
@@ -177,14 +185,36 @@ class ImageConfigManager():
 
 
 class ImageConfig():
+    CONVERT_CMD = {
+        'qcow2': ['ln', '-f'],
+        'vhd': ['qemu-img', 'convert', '-f', 'qcow2', '-O', 'vpc', '-o', 'force_size=on'],
+    }
+    # these tags may-or-may-not exist at various times
+    OPTIONAL_TAGS = [
+        'built', 'uploaded', 'imported', 'import_id', 'import_region', 'published', 'released'
+    ]
 
-    def __init__(self, config_key, obj={}):
+    def __init__(self, config_key, obj={}, log=None, yaml=None):
+        self._log = log
+        self._yaml = yaml
         self.config_key = str(config_key)
         tags = obj.pop('tags', None)
         self.__dict__ |= self._deep_dict(obj)
         # ensure tag values are str() when loading
         if tags:
             self.tags = tags
+
+    @classmethod
+    def to_yaml(cls, representer, node):
+        d = {}
+        for k in node.__dict__:
+            # don't serialize attributes starting with _
+            if k.startswith('_'):
+                continue
+
+            d[k] = node.__getattribute__(k)
+
+        return representer.represent_mapping('!ImageConfig', d)
 
     @property
     def v_version(self):
@@ -196,12 +226,9 @@ class ImageConfig():
 
     @property
     def local_path(self):
-        return self.local_dir / ('image.' + self.local_format)
+        return self.local_dir / 'image.qcow2'
 
-    @property
-    def published_yaml(self):
-        return self.local_dir / 'published.yaml'
-
+    # TODO? make this metadata_yaml instead, if it contains tags & artifacts?
     @property
     def artifacts_yaml(self):
         return self.local_dir / 'artifacts.yaml'
@@ -223,12 +250,40 @@ class ImageConfig():
         return self.local_dir / self.image_file
 
     @property
+    def image_metadata_file(self):
+        return '.'.join([self.image_name, 'yaml'])
+
+    @property
+    def image_metadata_path(self):
+        return self.local_dir / self.image_metadata_file
+
+    # TODO: flesh this out to replace upload_url
+    @property
+    def storage(self):
+        if not self._storage:
+            s = DictObj({})
+            if self.storage_url:
+                s.url = urlparse(self.upload_url)
+
+            else:
+                # ...
+                pass
+        
+        return self._storage
+
+    @property
     def upload_url(self):
-        return '/'.join([self.upload_path, self.remote_path, self.image_file]).format(v_version=self.v_version, **self.__dict__)
+        if not self.upload_path:
+            return None
+
+        return '/'.join([self.upload_path, self.image_file]).format(v_version=self.v_version, **self.__dict__)
 
     @property
     def download_url(self):
-        return '/'.join([self.download_path, self.remote_path, self.image_file]).format(v_version=self.v_version, **self.__dict__)
+        if not self.download_path:
+            return None
+
+        return '/'.join([self.download_path, self.image_file]).format(v_version=self.v_version, **self.__dict__)
 
     # TODO? region_url instead?
     def region_url(self, region, image_id):
@@ -255,9 +310,10 @@ class ImageConfig():
             'version': self.version
         }
         # stuff that might not be there yet
-        for k in ['imported', 'import_id', 'import_region', 'published']:
+        for k in self.OPTIONAL_TAGS:
             if self.__dict__.get(k, None):
                 t[k] = self.__dict__[k]
+
         return Tags(t)
 
     # recursively convert a ConfigTree object to a dict object
@@ -396,16 +452,22 @@ class ImageConfig():
         )))
 
     def refresh_state(self, step, revise=False):
-        log = logging.getLogger('build')
+        log = self._log
         actions = {}
         revision = 0
+        # TODO: local metadata -> stored metadata -> renamed clouds.latest_build_image
         remote_image = clouds.latest_build_image(self)
         log.debug('\n%s', remote_image)
         step_state = step == 'state'
 
+        # TODO: this needs to be sorted out for upload and release targets
+
         # enable actions based on the specified step
-        if step in ['local', 'import', 'publish', 'state']:
+        if step in ['local', 'upload', 'import', 'publish', 'state']:
             actions['build'] = True
+
+        if self.upload_path and step in ['upload', 'import', 'publish', 'state']:
+            actions['upload'] = True
 
         if step in ['import', 'publish', 'state']:
             actions['import'] = True
@@ -423,6 +485,8 @@ class ImageConfig():
                 if not step_state:
                     shutil.rmtree(self.local_dir)
 
+            # TODO? if self.uploaded --> self.remove_file(image, metadata, checksums)
+
             if remote_image and remote_image.published:
                 log.warning('%s image revision for %s',
                     'Would bump' if step_state else 'Bumping',
@@ -435,15 +499,16 @@ class ImageConfig():
                     'Would remove' if step_state else 'Removing',
                     remote_image.import_id)
                 if not step_state:
-                    clouds.remove_image(self, remote_image.import_id)
+                    clouds.delete_image(self, remote_image.import_id)
 
             remote_image = None
 
         elif remote_image:
             if remote_image.imported:
-                # already imported, don't build/import again
+                # already imported, don't build/upload/import again
                 log.debug('%s - already imported', self.image_key)
                 actions.pop('build', None)
+                actions.pop('upload', None)
                 actions.pop('import', None)
 
             if remote_image.published:
@@ -454,6 +519,8 @@ class ImageConfig():
             # local image's already built, don't rebuild
             log.debug('%s - already locally built', self.image_key)
             actions.pop('build', None)
+
+        # TODO? if self.uploaded --> already uploaded?
 
         # merge remote_image data into image state
         if remote_image:
@@ -470,8 +537,7 @@ class ImageConfig():
 
         # update artifacts, if we've got 'em
         if self.artifacts_yaml.exists():
-            yaml = YAML()
-            self.artifacts = yaml.load(self.artifacts_yaml)
+            self.artifacts = self.yaml.load(self.artifacts_yaml)
         else:
             self.artifacts = None
 
@@ -479,6 +545,95 @@ class ImageConfig():
         log.info('%s/%s = %s', self.cloud, self.image_name, self.actions)
 
         self.state_updated = datetime.utcnow().isoformat()
+
+    def _run(self, cmd, errmsg=None, errvals=[]):
+        log = self._log
+        p = Popen(cmd, stdout=PIPE, stdin=PIPE, encoding='utf8')
+        out, err = p.communicate()
+        if p.returncode:
+            if log:
+                if errmsg:
+                    log.error(errmsg, *errvals)
+
+                log.error('COMMAND: %s', ' '.join(cmd))
+                log.error('EXIT: %d', p.returncode)
+                log.error('STDOUT:\n%s', out)
+                log.error('STDERR:\n%s', err)
+
+            raise RuntimeError
+
+        return out, err
+
+    def _store_file(self, file):
+        log = self._log
+        if not self.storage_url:
+            log.info('Skipping storage of "%s", storage_url not configured', file)
+            return
+        
+        file_path = self.local_dir / file
+        url = self.storage.url
+        if url.scheme in ['', 'file']:
+            path = Path(url.netloc + url.path).expanduser()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            log.info('Copying %s to %s', file_path, path)
+            shutil.copy2(file_path, path)
+            return
+
+        elif url.scheme != 'ssh':
+            log.error('Uploading with %s scheme currently unsupported', url.scheme)
+            raise RuntimeError
+
+        ssh_port = ['-p', url.port] if url.port else []
+        scp_port = ['-P', url.port] if url.port else []
+        ssh_user = ['-l', url.username] if url.username else []
+        scp_user = url.username + '@' if url.username else ''
+        host = url.hostname
+        path = Path(url.path[1:])   # drop leading / on urlpath -- use // for absolute path
+        log.info('Uploading %s to %s', file_path, self.upload_url)
+        self._run(
+            ['ssh'] + ssh_port + ssh_user + [host, 'mkdir', '-p', str(path.parent)],
+            log, errmsg='Unable to create parent path for %s', errvals=[self.upload_url],
+        )
+        self._run(
+            ['scp'] + scp_port + [str(file_path), scp_user + ':'.join([host, str(path)])],
+            log, errmsg='Unable to upload image to %s', errvals=[self.upload_url],
+        )
+
+    # TODO: def _retrieve_file(self, file)
+    # TODO: def _remove_file(self, file)
+
+    def _save_checksum(self, file):
+        self._log.info("Calculating checksum for '%s'", file)
+        sha256_hash = hashlib.sha256()
+        with open(file, 'rb') as f:
+            for block in iter(lambda: f.read(4096), b''):
+                sha256_hash.update(block)
+
+        with open(str(file) + '.sha256', 'w') as f:
+            print(sha256_hash.hexdigest(), file=f)
+        
+    # convert local QCOW2 to format appropriate for a cloud
+    def convert_image(self):
+        self._log.info('Converting %s to %s', self.local_path, self.image_path)
+        self._run(
+            self.CONVERT_CMD[self.image_format] + [self.local_path, self.image_path],
+            errmsg='Unable to convert %s to %s', errvals=[self.local_path, self.image_path],
+        )
+        self._save_checksum(self.image_path)
+        self.built = datetime.utcnow().isoformat()
+
+    def save_metadata(self, upload=True):
+        os.makedirs(self.local_dir, exist_ok=True)
+        self._log.info('Saving image metadata')
+        self.yaml.dump(dict(self.tags), self.image_metadata_path)
+        self._save_checksum(self.image_metadata_path)
+
+    def upload_metadata(self):
+        self._upload(self.image_metadata_file)
+
+    def upload_image(self):
+        self._upload(self.image_file)
+        self.uploaded = datetime.utcnow().isoformat()
 
 
 class DictObj(dict):
