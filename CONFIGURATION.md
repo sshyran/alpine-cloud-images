@@ -208,10 +208,6 @@ may not) be further partitioned, based on other factors.
 
 The image's primary login user, set to `alpine`.
 
-### `local_format` string
-
-The local VM's disk image format, set to `qcow2`.
-
 ### `repos` map
 
 Defines the contents of the image's `/etc/apk/repositories` file.  The map's
@@ -281,10 +277,6 @@ not they're included in the final list...
 | `null`  | skip |
 | `false` | skip |
 | `true`  | include |
-
-### `builder` string
-
-The Packer builder that's used to build images.  This is set to `qemu`.
 
 ### `qemu.machine_type` string
 

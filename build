@@ -48,7 +48,7 @@ from image_configs import ImageConfigManager
 
 ### Constants & Variables
 
-STEPS = ['configs', 'state', 'rollback', 'local', 'import', 'publish']
+STEPS = ['configs', 'state', 'rollback', 'local', 'upload', 'import', 'publish', 'release']
 LOGFORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 WORK_CLEAN = {'bin', 'include', 'lib', 'pyvenv.cfg', '__pycache__'}
 WORK_OVERLAYS = ['configs', 'scripts']
@@ -224,8 +224,8 @@ parser.add_argument(
     default=[], help='only variants with dimension key(s)')
 parser.add_argument(
     '--revise', action='store_true',
-    help='remove existing local/imported image, or bump revision and rebuild'
-        'if published')
+    help='remove existing local/uploaded/imported image, or bump revision and '
+        ' rebuild if published or released')
 parser.add_argument(
     '--use-broker', action='store_true',
     help='use the identity broker to get credentials')
@@ -252,7 +252,9 @@ console.setFormatter(logfmt)
 log.addHandler(console)
 log.debug(args)
 
-# TODO: rollback requires --revise
+if args.step == 'rollback':
+    log.warning('"rollback" step enables --revise option')
+    args.revise = True
 
 # set up credential provider, if we're going to use it
 if args.use_broker:

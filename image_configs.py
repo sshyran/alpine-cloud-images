@@ -1,8 +1,10 @@
 # vim: ts=4 et:
 
+import hashlib
 import itertools
 import logging
 import mergedeep
+import os
 import pyhocon
 import shutil
 
@@ -10,6 +12,8 @@ from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from ruamel.yaml import YAML
+from subprocess import Popen, PIPE
+from urllib.parse import urlparse
 
 import clouds
 
@@ -48,7 +52,8 @@ class ImageConfigManager():
     def _load_yaml(self):
         self.log.info('Loading existing %s', self.yaml_path)
         for key, config in self.yaml.load(self.yaml_path).items():
-            self._configs[key] = ImageConfig(key, config)
+            self._configs[key] = ImageConfig(key, config, log=self.log, yaml=self.yaml)
+            # TODO: also pull in additional per-image metatdata from the build process?
 
     # save resolved configs to YAML
     def _save_yaml(self):
@@ -90,7 +95,9 @@ class ImageConfigManager():
                 {
                     'image_key': image_key,
                     'release': release
-                } | dim_map
+                } | dim_map,
+                log=self.log,
+                yaml=self.yaml
             )
 
             # merge in the Default config
@@ -99,18 +106,6 @@ class ImageConfigManager():
             # merge in each dimension key's configs
             for dim, dim_key in dim_map.items():
                 dim_cfg = deepcopy(cfg.Dimensions[dim][dim_key])
-
-                exclude = dim_cfg.pop('EXCLUDE', None)
-                if exclude and set(exclude) & set(dim_keys):
-                    self.log.debug('%s SKIPPED, %s excludes %s', config_key, dim_key, exclude)
-                    skip = True
-                    break
-
-                if eol := dim_cfg.get('end_of_life', None):
-                    if self.now > datetime.fromisoformat(eol):
-                        self.log.warning('%s SKIPPED, %s end_of_life %s', config_key, dim_key, eol)
-                        skip = True
-                        break
 
                 image_config._merge(dim_cfg)
 
@@ -123,6 +118,18 @@ class ImageConfigManager():
                         # WHEN keys with spaces are considered "or" operations
                         if len(set(when_keys.split(' ')) & dim_keys) > 0:
                             image_config._merge(when_conf)
+
+                exclude = image_config._pop('EXCLUDE', None)
+                if exclude and set(exclude) & set(dim_keys):
+                    self.log.debug('%s SKIPPED, %s excludes %s', config_key, dim_key, exclude)
+                    skip = True
+                    break
+
+                if eol := image_config._get('end_of_life', None):
+                    if self.now > datetime.fromisoformat(eol):
+                        self.log.warning('%s SKIPPED, %s end_of_life %s', config_key, dim_key, eol)
+                        skip = True
+                        break
 
             if skip is True:
                 continue
@@ -178,7 +185,18 @@ class ImageConfigManager():
 
 class ImageConfig():
 
-    def __init__(self, config_key, obj={}):
+    CONVERT_CMD = {
+        'qcow2': ['ln', '-f'],
+        'vhd': ['qemu-img', 'convert', '-f', 'qcow2', '-O', 'vpc', '-o', 'force_size=on'],
+    }
+    # these tags may-or-may-not exist at various times
+    OPTIONAL_TAGS = [
+        'built', 'uploaded', 'imported', 'import_id', 'import_region', 'published', 'released'
+    ]
+
+    def __init__(self, config_key, obj={}, log=None, yaml=None):
+        self._log = log
+        self._yaml = yaml
         self.config_key = str(config_key)
         tags = obj.pop('tags', None)
         self.__dict__ |= self._deep_dict(obj)
@@ -186,17 +204,33 @@ class ImageConfig():
         if tags:
             self.tags = tags
 
+    @classmethod
+    def to_yaml(cls, representer, node):
+        d = {}
+        for k in node.__dict__:
+            # don't serialize attributes starting with _
+            if k.startswith('_'):
+                continue
+
+            d[k] = node.__getattribute__(k)
+
+        return representer.represent_mapping('!ImageConfig', d)
+
+    @property
+    def v_version(self):
+        return 'edge' if self.version == 'edge' else 'v' + self.version
+
     @property
     def local_dir(self):
         return Path('work/images') / self.cloud / self.image_key
 
     @property
     def local_path(self):
-        return self.local_dir / ('image.' + self.local_format)
+        return self.local_dir / ('image.qcow2')
 
     @property
-    def published_yaml(self):
-        return self.local_dir / 'published.yaml'
+    def artifacts_yaml(self):
+        return self.local_dir / 'artifacts.yaml'
 
     @property
     def image_name(self):
@@ -206,8 +240,24 @@ class ImageConfig():
     def image_description(self):
         return self.description.format(**self.__dict__)
 
-    def image_url(self, region, image_id):
-        return self.cloud_image_url.format(region=region, image_id=image_id, **self.__dict__)
+    @property
+    def image_file(self):
+        return '.'.join([self.image_name, self.image_format])
+
+    @property
+    def image_path(self):
+        return self.local_dir / self.image_file
+
+    @property
+    def image_metadata_file(self):
+        return '.'.join([self.image_name, 'yaml'])
+
+    @property
+    def image_metadata_path(self):
+        return self.local_dir / self.image_metadata_file
+
+    def region_url(self, region, image_id):
+        return self.cloud_region_url.format(region=region, image_id=image_id, **self.__dict__)
 
     def launch_url(self, region, image_id):
         return self.cloud_launch_url.format(region=region, image_id=image_id, **self.__dict__)
@@ -230,9 +280,10 @@ class ImageConfig():
             'version': self.version
         }
         # stuff that might not be there yet
-        for k in ['imported', 'import_id', 'import_region', 'published']:
+        for k in self.OPTIONAL_TAGS:
             if self.__dict__.get(k, None):
                 t[k] = self.__dict__[k]
+
         return Tags(t)
 
     # recursively convert a ConfigTree object to a dict object
@@ -260,6 +311,9 @@ class ImageConfig():
 
     def _merge(self, obj={}):
         mergedeep.merge(self.__dict__, self._deep_dict(obj), strategy=mergedeep.Strategy.ADDITIVE)
+
+    def _get(self, attr, default=None):
+        return self.__dict__.get(attr, default)
 
     def _pop(self, attr, default=None):
         return self.__dict__.pop(attr, default)
@@ -367,8 +421,9 @@ class ImageConfig():
             for m, v in self.__dict__[d].items()
         )))
 
+    # TODO: this needs to be sorted out for 'upload' and 'release' steps
     def refresh_state(self, step, revise=False):
-        log = logging.getLogger('build')
+        log = self._log
         actions = {}
         revision = 0
         remote_image = clouds.latest_build_image(self)
@@ -407,7 +462,7 @@ class ImageConfig():
                     'Would remove' if step_state else 'Removing',
                     remote_image.import_id)
                 if not step_state:
-                    clouds.remove_image(self, remote_image.import_id)
+                    clouds.delete_image(self, remote_image.import_id)
 
             remote_image = None
 
@@ -441,10 +496,9 @@ class ImageConfig():
             }
 
         # update artifacts, if we've got 'em
-        artifacts_yaml = self.local_dir / 'artifacts.yaml'
-        if artifacts_yaml.exists():
-            yaml = YAML()
-            self.artifacts = yaml.load(artifacts_yaml)
+        if self.artifacts_yaml.exists():
+            self.artifacts = self.yaml.load(self.artifacts_yaml)
+
         else:
             self.artifacts = None
 
@@ -452,6 +506,50 @@ class ImageConfig():
         log.info('%s/%s = %s', self.cloud, self.image_name, self.actions)
 
         self.state_updated = datetime.utcnow().isoformat()
+
+    def _run(self, cmd, errmsg=None, errvals=[]):
+        log = self._log
+        p = Popen(cmd, stdout=PIPE, stdin=PIPE, encoding='utf8')
+        out, err = p.communicate()
+        if p.returncode:
+            if log:
+                if errmsg:
+                    log.error(errmsg, *errvals)
+
+                log.error('COMMAND: %s', ' '.join(cmd))
+                log.error('EXIT: %d', p.returncode)
+                log.error('STDOUT:\n%s', out)
+                log.error('STDERR:\n%s', err)
+
+            raise RuntimeError
+
+        return out, err
+
+    def _save_checksum(self, file):
+        self._log.info("Calculating checksum for '%s'", file)
+        sha256_hash = hashlib.sha256()
+        with open(file, 'rb') as f:
+            for block in iter(lambda: f.read(4096), b''):
+                sha256_hash.update(block)
+
+        with open(str(file) + '.sha256', 'w') as f:
+            print(sha256_hash.hexdigest(), file=f)
+
+    # convert local QCOW2 to format appropriate for a cloud
+    def convert_image(self):
+        self._log.info('Converting %s to %s', self.local_path, self.image_path)
+        self._run(
+            self.CONVERT_CMD[self.image_format] + [self.local_path, self.image_path],
+            errmsg='Unable to convert %s to %s', errvals=[self.local_path, self.image_path],
+        )
+        self._save_checksum(self.image_path)
+        self.built = datetime.utcnow().isoformat()
+
+    def save_metadata(self, upload=True):
+        os.makedirs(self.local_dir, exist_ok=True)
+        self._log.info('Saving image metadata')
+        self._yaml.dump(dict(self.tags), self.image_metadata_path)
+        self._save_checksum(self.image_metadata_path)
 
 
 class DictObj(dict):

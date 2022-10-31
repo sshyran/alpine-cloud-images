@@ -36,8 +36,8 @@ def import_image(config):
     return ADAPTERS[config.cloud].import_image(config)
 
 
-def remove_image(config, image_id):
-    return ADAPTERS[config.cloud].remove_image(image_id)
+def delete_image(config, image_id):
+    return ADAPTERS[config.cloud].delete_image(image_id)
 
 
 def publish_image(config):

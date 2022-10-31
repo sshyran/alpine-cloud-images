@@ -7,7 +7,7 @@ import os
 import time
 
 from datetime import datetime
-from subprocess import Popen, PIPE, run
+from subprocess import run
 
 from .interfaces.adapter import CloudAdapterInterface
 from image_configs import Tags, DictObj
@@ -22,9 +22,6 @@ class AWSCloudAdapter(CloudAdapterInterface):
         'secret_key': 'aws_secret_access_key',
         'session_token': 'aws_session_token',
     }
-    CONVERT_CMD = (
-        'qemu-img', 'convert', '-f', 'qcow2', '-O', 'vpc', '-o', 'force_size=on'
-    )
     ARCH = {
         'aarch64': 'arm64',
         'x86_64': 'x86_64',
@@ -114,21 +111,7 @@ class AWSCloudAdapter(CloudAdapterInterface):
     # NOTE: requires 'vmimport' role with read/write of <s3_bucket>.* and its objects
     def import_image(self, ic):
         log = logging.getLogger('import')
-        image_path = ic.local_path
-        image_aws = ic.local_dir / 'image.vhd'
-        name = ic.image_name
         description = ic.image_description
-
-        # convert QCOW2 to VHD
-        log.info('Converting %s to VHD format', image_path)
-        p = Popen(self.CONVERT_CMD + (image_path, image_aws), stdout=PIPE, stdin=PIPE, encoding='utf8')
-        out, err = p.communicate()
-        if p.returncode:
-            log.error('Unable to convert %s to VHD format (%s)', image_path, p.returncode)
-            log.error('EXIT: %d', p.returncode)
-            log.error('STDOUT:\n%s', out)
-            log.error('STDERR:\n%s', err)
-            raise RuntimeError
 
         session = self.session()
         s3r = session.resource('s3')
@@ -136,7 +119,6 @@ class AWSCloudAdapter(CloudAdapterInterface):
         ec2r = session.resource('ec2')
 
         bucket_name = 'alpine-cloud-images.' + hashlib.sha1(os.urandom(40)).hexdigest()
-        s3_key = name + '.vhd'
 
         bucket = s3r.Bucket(bucket_name)
         log.info('Creating S3 bucket %s', bucket.name)
@@ -144,22 +126,27 @@ class AWSCloudAdapter(CloudAdapterInterface):
             CreateBucketConfiguration={'LocationConstraint': ec2c.meta.region_name}
         )
         bucket.wait_until_exists()
-        s3_url = f"s3://{bucket.name}/{s3_key}"
+        s3_url = f"s3://{bucket.name}/{ic.image_file}"
 
         try:
-            log.info('Uploading %s to %s', image_aws, s3_url)
-            bucket.upload_file(str(image_aws), s3_key)
+            log.info('Uploading %s to %s', ic.image_path, s3_url)
+            bucket.upload_file(str(ic.image_path), ic.image_file)
 
             # import snapshot from S3
             log.info('Importing EC2 snapshot from %s', s3_url)
-            ss_import = ec2c.import_snapshot(
-                DiskContainer={
+            ss_import_opts = {
+                'DiskContainer': {
                     'Description': description,     # https://github.com/boto/boto3/issues/2286
                     'Format': 'VHD',
-                    'Url': s3_url
-                }
+                    'Url': s3_url,
+                },
+                'Encrypted': True if ic.encrypted else False,
                 # NOTE: TagSpecifications -- doesn't work with ResourceType: snapshot?
-            )
+            }
+            if type(ic.encrypted) is str:
+                ss_import_opts['KmsKeyId'] =  ic.encrypted
+
+            ss_import = ec2c.import_snapshot(**ss_import_opts)
             ss_task_id = ss_import['ImportTaskId']
             while True:
                 ss_task = ec2c.describe_import_snapshot_tasks(
@@ -182,7 +169,7 @@ class AWSCloudAdapter(CloudAdapterInterface):
         finally:
             # always cleanup S3, even if there was an exception raised
             log.info('Cleaning up %s', s3_url)
-            bucket.Object(s3_key).delete()
+            bucket.Object(ic.image_file).delete()
             bucket.delete()
 
         # tag snapshot
@@ -240,8 +227,8 @@ class AWSCloudAdapter(CloudAdapterInterface):
 
         return self._image_info(image)
 
-    # remove an (unpublished) image
-    def remove_image(self, image_id):
+    # delete an (unpublished) image
+    def delete_image(self, image_id):
         log = logging.getLogger('build')
         ec2r = self.session().resource('ec2')
         image = ec2r.Image(image_id)
@@ -309,13 +296,18 @@ class AWSCloudAdapter(CloudAdapterInterface):
                 log.info('%s: Already exists as %s', r, image.id)
             else:
                 ec2c = self.session(r).client('ec2')
+                copy_image_opts = {
+                    'Description': source.description,
+                    'Name': source.name,
+                    'SourceImageId': source_id,
+                    'SourceRegion': source_region,
+                    'Encrypted': True if ic.encrypted else False,
+                }
+                if type(ic.encrypted) is str:
+                    copy_image_opts['KmsKeyId'] = ic.encrypted
+
                 try:
-                    res = ec2c.copy_image(
-                        Description=source.description,
-                        Name=source.name,
-                        SourceImageId=source_id,
-                        SourceRegion=source_region,
-                    )
+                    res = ec2c.copy_image(**copy_image_opts)
                 except Exception:
                     log.warning('Skipping %s, unable to copy image:', r, exc_info=True)
                     continue

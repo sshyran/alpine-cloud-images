@@ -29,6 +29,11 @@ variable "qemu" {
 ### Local Data
 
 locals {
+  # possible actions for the post-processor
+  actions = [
+    "build", "upload", "import", "publish", "release"
+  ]
+
   debug_arg   = var.DEBUG == 0 ? "" : "--debug"
   broker_arg  = var.USE_BROKER == 0 ? "" : "--use-broker"
 
@@ -80,7 +85,7 @@ build {
   # QEMU builder
   dynamic "source" {
     for_each = { for b, c in local.configs:
-        b => c if contains(c.actions, "build") && c.builder == "qemu"
+        b => c if contains(c.actions, "build")
       }
     iterator = B
     labels = ["qemu.alpine"]  # links us to the base source
@@ -102,8 +107,8 @@ build {
       # results
       output_directory  = "work/images/${B.value.cloud}/${B.value.image_key}"
       disk_size         = B.value.size
-      format            = B.value.local_format
-      vm_name           = "image.${B.value.local_format}"
+      format            = "qcow2"
+      vm_name           = "image.qcow2"
     }
   }
 
@@ -129,7 +134,7 @@ build {
     iterator = B
     labels = ["file"]
     content {
-      only = [ "${B.value.builder}.${B.key}" ]  # configs specific to one build
+      only = [ "qemu.${B.key}" ]  # configs specific to one build
 
       sources     = [ for d in B.value.script_dirs: "work/scripts/${d}" ]
       destination = "/tmp/"
@@ -144,7 +149,7 @@ build {
     iterator = B
     labels = ["shell"]
     content {
-      only = [ "${B.value.builder}.${B.key}" ]  # configs specific to one build
+      only = [ "qemu.${B.key}" ]  # configs specific to one build
 
       scripts = [ for s in B.value.scripts: "work/scripts/${s}" ]
       use_env_var_file = true
@@ -181,13 +186,13 @@ build {
   # import and/or publish cloud images
   dynamic "post-processor" {
     for_each = { for b, c in local.configs:
-       b => c if contains(c.actions, "import") || contains(c.actions, "publish")
+       b => c if length(setintersection(c.actions, local.actions)) > 0
     }
     iterator = B
     labels = ["shell-local"]
     content {
-      only = [ "${B.value.builder}.${B.key}", "null.${B.key}" ]
-      inline = [ for action in ["import", "publish"]:
+      only = [ "qemu.${B.key}", "null.${B.key}" ]
+      inline = [ for action in local.actions:
         "./cloud_helper.py ${action} ${local.debug_arg} ${local.broker_arg} ${B.key}" if contains(B.value.actions, action)
       ]
     }

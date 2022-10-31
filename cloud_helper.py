@@ -38,7 +38,7 @@ from image_configs import ImageConfigManager
 
 ### Constants & Variables
 
-ACTIONS = ['import', 'publish']
+ACTIONS = ['build', 'upload', 'import', 'publish', 'release']
 LOGFORMAT = '%(name)s - %(levelname)s - %(message)s'
 
 
@@ -78,10 +78,26 @@ yaml.explicit_start = True
 for image_key in args.image_keys:
     image_config = configs.get(image_key)
 
-    if args.action == 'import':
+    if args.action == 'build':
+        image_config.convert_image()
+
+    elif args.action == 'upload':
+        # TODO: image_config.upload_image()
+        pass
+
+    elif args.action == 'import':
         clouds.import_image(image_config)
 
     elif args.action == 'publish':
+        # TODO: we should probably always ensure the directory exists
         os.makedirs(image_config.local_dir, exist_ok=True)
+        # TODO: save artifacts to image_config itself
         artifacts = clouds.publish_image(image_config)
-        yaml.dump(artifacts, Path(image_config.local_dir) / 'artifacts.yaml')
+        yaml.dump(artifacts, image_config.artifacts_yaml)
+
+    elif args.action == 'release':
+        pass
+        # TODO: image_config.release_image() - configurable steps to take on remote host
+
+    # save per-image metadata
+    image_config.save_metadata(upload=(False if args.action =='build' else True))
