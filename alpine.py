@@ -9,16 +9,18 @@ from urllib.request import urlopen
 class Alpine():
 
     DEFAULT_RELEASES_URL = 'https://alpinelinux.org/releases.json'
+    DEFAULT_POSTS_URL = 'https://alpinelinux.org/posts/'
     DEFAULT_CDN_URL = 'https://dl-cdn.alpinelinux.org/alpine'
     DEFAULT_WEB_TIMEOUT = 5
 
-    def __init__(self, releases_url=None, cdn_url=None, web_timeout=None):
+    def __init__(self, releases_url=None, posts_url=None, cdn_url=None, web_timeout=None):
         self.now = datetime.utcnow()
         self.release_today = self.now.strftime('%Y%m%d')
         self.eol_tomorrow = (self.now + timedelta(days=1)).strftime('%F')
         self.latest = None
         self.versions = {}
         self.releases_url = releases_url or self.DEFAULT_RELEASES_URL
+        self.posts_url = posts_url or self.DEFAULT_POSTS_URL
         self.web_timeout = web_timeout or self.DEFAULT_WEB_TIMEOUT
         self.cdn_url = cdn_url or self.DEFAULT_CDN_URL
 
@@ -35,10 +37,16 @@ class Alpine():
                 self.latest = ver
 
             rel = None
+            notes = None
             if releases := b.get('releases', None):
-                rel = sorted(
+                r = sorted(
                     releases, reverse=True, key=lambda x: x['date']
-                )[0]['version']
+                )[0]
+                rel = r['version']
+                notes = r.get('notes', None)
+                if notes:
+                    notes = self.posts_url + notes.removeprefix('posts/').replace('.md', '.html')
+
             elif ver == 'edge':
                 # edge "releases" is today's YYYYMMDD
                 rel = self.release_today
@@ -48,6 +56,7 @@ class Alpine():
                 'release': rel,
                 'end_of_life': b.get('eol_date', self.eol_tomorrow),
                 'arches': b.get('arches'),
+                'notes': notes,
             }
 
     def _ver(self, ver=None):
@@ -80,6 +89,7 @@ class Alpine():
                 'release': rel,
                 'end_of_life': self.eol_tomorrow,
                 'arches': self.versions['edge']['arches'],  # reasonable assumption
+                'notes': None,
             }
 
         return self.versions[ver]

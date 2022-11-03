@@ -151,6 +151,7 @@ class ImageConfigManager():
         info = self.alpine.version_info(v)
         c.put('release', info['release'])
         c.put('end_of_life', info['end_of_life'])
+        c.put('release_notes', info['notes'])
 
         # release is also appended to name & description arrays
         c.put('name', [c.release])
@@ -332,24 +333,22 @@ class ImageConfig():
         self._stringify_dict_keys('initfs_features', ' ')
 
     def _resolve_motd(self):
-        # merge version/release notes, as apporpriate
-        if self.motd.get('version_notes', None) and self.motd.get('release_notes', None):
-            if self.version == 'edge':
-                # edge is, by definition, not released
-                self.motd.pop('version_notes', None)
-                self.motd.pop('release_notes', None)
+        # merge release notes, as apporpriate
+        if 'release_notes' not in self.motd or not self.release_notes:
+            self.motd.pop('release_notes', None)
 
-            elif self.release == self.version + '.0':
-                # no point in showing the same URL twice
-                self.motd.pop('release_notes')
+        motd = {}
+        for k, v in self.motd.items():
+            if v is None:
+                continue
 
-            else:
-                # combine version and release notes
-                self.motd['release_notes'] = self.motd.pop('version_notes') + '\n' + \
-                    self.motd['release_notes']
+            # join list values with newlines
+            if type(v) is list:
+                v = "\n".join(v)
 
-        # TODO: be rid of null values
-        self.motd = '\n\n'.join(self.motd.values()).format(**self.__dict__)
+            motd[k] = v
+
+        self.motd = '\n\n'.join(motd.values()).format(**self.__dict__)
 
     def _stringify_repos(self):
         # stringify repos map

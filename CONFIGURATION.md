@@ -178,14 +178,8 @@ variant image's `/etc/motd` file.  Later configs can add additional messages,
 replace existing contents, or remove them entirely (by setting the value to
 `null`).
 
-The `motd.version_notes` and `motd.release_notes` settings have slightly
-different behavior:
-* if the Alpine release (_x.y.z_) ends with `.0`, `release_notes` is dropped
-  to avoid redundancy
-* edge versions are technically not released, so both of these notes are
-  dropped from `/etc/motd`
-* otherwise, `version_notes` and `release_notes` are concatenated together as
-  `release_notes` to avoid a blank line between them
+The `motd.release_notes` setting will be ignored if the Alpine release does
+not have a release notes web page associated with it.
 
 ### `scripts` array
 

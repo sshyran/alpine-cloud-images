@@ -196,10 +196,11 @@ def install_qemu_firmware():
             log.error('STDERR:\n%s', err.decode('utf8'))
             sys.exit(1)
 
-        firm_bin = os.path.join(firm_dir, f"uefi-{arch}.bin")
-        os.symlink(bin, firm_bin)
-        log.info('Padding "%s" to 67108864 bytes', firm_bin)
-        subprocess.run(['truncate', '-s', '67108864', firm_bin])
+        if args.pad_uefi_bins:
+            firm_bin = os.path.join(firm_dir, f"uefi-{arch}.bin")
+            os.symlink(bin, firm_bin)
+            log.info('Padding "%s" to 67108864 bytes', firm_bin)
+            subprocess.run(['truncate', '-s', '67108864', firm_bin])
 
 
 ### Command Line & Logging
@@ -211,6 +212,9 @@ parser.add_argument(
     '--debug', action='store_true', help='enable debug output')
 parser.add_argument(
     '--clean', action='store_true', help='start with a clean work environment')
+parser.add_argument(
+    '--pad-uefi-bins', action=argparse.BooleanOptionalAction, default=True,
+    help='pad out UEFI firmware binaries to 64 MiB')
 # config options
 parser.add_argument(
     '--custom', metavar='DIR', nargs='+', action=are_args_valid(os.path.isdir),
@@ -264,7 +268,7 @@ if args.use_broker:
 
 latest = alpine.version_info()
 log.info('Latest Alpine version %s and release %s', latest['version'], latest['release'])
-
+log.info('Latest Alpine release notes: %s', latest['notes'])
 if args.clean:
     clean_work()
 
