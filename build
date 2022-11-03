@@ -196,9 +196,9 @@ def install_qemu_firmware():
             log.error('STDERR:\n%s', err.decode('utf8'))
             sys.exit(1)
 
+        firm_bin = os.path.join(firm_dir, f"uefi-{arch}.bin")
+        os.symlink(bin, firm_bin)
         if args.pad_uefi_bins:
-            firm_bin = os.path.join(firm_dir, f"uefi-{arch}.bin")
-            os.symlink(bin, firm_bin)
             log.info('Padding "%s" to 67108864 bytes', firm_bin)
             subprocess.run(['truncate', '-s', '67108864', firm_bin])
 
